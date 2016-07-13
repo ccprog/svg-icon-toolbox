@@ -1,0 +1,20 @@
+{
+  "name": "svg-icon-toolbox",
+  "version": "0.1.0",
+  "description": "toolbox for svg icon and style assets workflows",
+  "main": "index.js",
+  "engines": { "node": ">=4.4" },
+  "dependencies": {
+    "async": "^2.0.0",
+    "cheerio": "^0.20.0",
+    "css": "^2.2.1",
+    "node-sass": "^3.8.0",
+    "pretty-data": "^0.40.0",
+    "specificity": "^0.2.1"
+  },
+  "devDependencies": {},
+  "repository" : "ccprog/svg-icon-toolbox",
+  "keywords": ["svg", "css", "sass", "icons", "assets"],
+  "author": "Claus Colloseus <ccprog@gmx.de>",
+  "license": "SEE LICENSE IN LICENSE"
+}
