@@ -3,4 +3,4 @@ node_modules/
 *~
 .vscode/
 jsconfig.json
-tests/
+tests/adhoc/

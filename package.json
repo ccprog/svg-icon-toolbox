@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "toolbox for svg icon and style assets workflows",
   "main": "index.js",
-  "engines": { "node": ">=4.4" },
+  "engines": {
+    "node": ">=4.4"
+  },
   "dependencies": {
     "async": "^2.0.0",
     "cheerio": "^0.20.0",
@@ -12,9 +14,19 @@
     "pretty-data": "^0.40.0",
     "specificity": "^0.2.1"
   },
-  "devDependencies": {},
-  "repository" : "ccprog/svg-icon-toolbox",
-  "keywords": ["svg", "css", "sass", "icons", "assets"],
+  "devDependencies": {
+    "grunt-contrib-jshint": "^1.0.0",
+    "grunt-jasmine-nodejs": "^1.5.3",
+    "sandboxed-module": "^2.0.3"
+  },
+  "repository": "ccprog/svg-icon-toolbox",
+  "keywords": [
+    "svg",
+    "css",
+    "sass",
+    "icons",
+    "assets"
+  ],
   "author": "Claus Colloseus <ccprog@gmx.de>",
   "license": "SEE LICENSE IN LICENSE"
 }
