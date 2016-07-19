@@ -10,9 +10,14 @@ describe("module iconize-svg", function () {
     var sourceFn, source, $xml, exportOptions;
     var spawnCallback, writeCallbacks, spawnLineFn, normalizeCallbacks;
 
-    function loadIconize (ids, dimensions) {
+    function loadIconize (ids, dimensions, dir, suffix) {
         $xml = cheerio.load(source, { xmlMode: true });
-        iconize(sourceFn, $xml, {ids: ids, exportOptions: exportOptions}, callback);
+        iconize(sourceFn, $xml, {
+            ids: ids,
+            dir: dir,
+            suffix: suffix,
+            exportOptions: exportOptions
+        }, callback);
         if (dimensions) {
             dimensions.forEach(spawnLineFn);
             spawnCallback(null);
@@ -35,9 +40,12 @@ describe("module iconize-svg", function () {
             normalize: function (fn, callback) {
                 normalizeCallbacks[fn] = callback;
             },
-            handleErr: jasmine.createSpy('handleErr')
+            handleErr: function (err, cmd, callback) {
+                callback('err');
+            }
         };
         spyOn(utils, 'normalize').and.callThrough();
+        spyOn(utils, 'handleErr').and.callThrough();
         spawn = jasmine.createSpy('spawn')
                 .and.callFake(function (cmd, lineFn, delay, callback) {
             spawnLineFn = lineFn;
@@ -63,6 +71,12 @@ describe("module iconize-svg", function () {
         expect(typeof spawn.calls.argsFor(0)[3]).toBe('function');
         spawnCallback(null);
         expect(callback).toHaveBeenCalledWith(null);
+    });
+
+    it("reacts on spawn errors", function () {
+        loadIconize([]);
+        spawnCallback('err');
+        expect(callback).toHaveBeenCalledWith('err');
     });
 
     it("writes to target file name", function () {
@@ -95,6 +109,7 @@ describe("module iconize-svg", function () {
         expect(utils.handleErr.calls.argsFor(0)[0]).toBe('message');
         expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
         expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
+        expect(callback).toHaveBeenCalledWith('err');
     });
 
     it("reacts on missing ids", function () {
@@ -105,6 +120,7 @@ describe("module iconize-svg", function () {
         expect(utils.handleErr.calls.argsFor(0)[0]).toBe('object object1 not found in loaded source.');
         expect(utils.handleErr.calls.argsFor(0)[1]).toBe('SVG');
         expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
+        expect(callback).toHaveBeenCalledWith('err');
     });
 
     it("finds and applies dimensions", function () {
@@ -148,6 +164,19 @@ describe("module iconize-svg", function () {
         expect($svg.attr('height')).toBeUndefined();
         expect($svg.attr('preserveAspectRatio')).toBe('mid');
         expect($svg.attr('random')).toBeUndefined();
+    });
+
+    it("adds directories and suffixes", function () {
+        loadIconize(
+            ['object1'], ['object1,5,5,10,20'],
+            null, '-suffix'
+        );
+        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1-suffix.svg');
+        loadIconize(
+            ['object1'], ['object1,5,5,10,20'],
+            'dir/'
+        );
+        expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.svg');
     });
 
     it("changes and restores cheerio root object", function () {

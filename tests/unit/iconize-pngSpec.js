@@ -8,8 +8,13 @@ describe("module iconize-png", function () {
     var sourceFn, exportOptions;
     var spawnLineFn, normalizeCallbacks = {};
 
-    function loadIconize (ids) {
-        iconize(sourceFn, {ids: ids, exportOptions: exportOptions}, callback);
+    function loadIconize (ids, dir, suffix) {
+        iconize(sourceFn, {
+            ids: ids,
+            dir: dir,
+            suffix: suffix,
+            exportOptions: exportOptions
+        }, callback);
     }
 
     beforeEach(function () {
@@ -123,5 +128,12 @@ describe("module iconize-png", function () {
                  expect(command).toContain(part);
             }
         }
+    });
+
+    it("adds directories and suffixes", function () {
+        loadIconize(['object1'], null, '-suffix');
+        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1-suffix.png');
+        loadIconize(['object1'], 'dir/');
+        expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.png');
     });
 });

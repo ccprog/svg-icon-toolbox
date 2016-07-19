@@ -135,6 +135,26 @@ describe("module stylesheet, function collect", function () {
         expect(callback.calls.argsFor(0)).toEqual([null, ['compiled']]);
     });
 
+    it("reads sass options", function () {
+        sassOptions = {
+            file: 'file',
+            includePaths: ['dir/'],
+            sourceMap: true,
+            data: 'fakeContent',
+            random: 'random'
+        };
+        loadCollect('./file');
+        normalizeCallbacks['./file'](null, 'file.scss');
+        fileCallback(null, 'content');
+        expect(sass.render.calls.argsFor(0)[0]).toEqual({
+            file: null,
+            includePaths: ['dir/'],
+            sourceMap: false,
+            data: 'content',
+            random: 'random'
+        });
+    });
+
     it("reads multiple sass file", function () {
         loadCollect(['./file1', './file2']);
         expect(utils.normalize.calls.argsFor(0)[0]).toBe('./file1');
