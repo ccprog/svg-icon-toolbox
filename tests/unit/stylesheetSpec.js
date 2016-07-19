@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var async = require('async');
 var path = require('path');
 
 describe("module stylesheet, function collect", function () {
@@ -40,7 +41,7 @@ describe("module stylesheet, function collect", function () {
         };
         spyOn(utils, 'normalize').and.callThrough();
         stylesheet = SandboxedModule.require('../../lib/stylesheet.js', {
-            requires: { 'css': css, 'node-sass': sass, 'fs': fs,
+            requires: { 'async': async, 'css': css, 'node-sass': sass, 'fs': fs,
                     'path': path, './utils.js': utils },
             globals: { 'console': console },
             sourceTransformers: {

@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+SandboxedModule.registerBuiltInSourceTransformer('istanbul');
 
 describe("module utils", function () {
     var path, cp, console, utils, callback;

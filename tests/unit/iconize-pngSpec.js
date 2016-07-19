@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var async = require('async');
 
 describe("module iconize-png", function () {
     var stdin, utils, spawn, iconize, callback;
@@ -28,7 +29,7 @@ describe("module iconize-png", function () {
             return stdin;
         });
         iconize = SandboxedModule.require('../../lib/iconize-png.js', {
-            requires: { './utils': utils, './spawn': spawn },
+            requires: { 'async': async, './utils': utils, './spawn': spawn },
             globals: { 'console': { log: () => {} } }
         });
         callback = jasmine.createSpy('callback');

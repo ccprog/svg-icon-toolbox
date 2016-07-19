@@ -17,6 +17,7 @@
   "devDependencies": {
     "grunt-contrib-jshint": "^1.0.0",
     "grunt-jasmine-nodejs": "^1.5.3",
+    "istanbul": "^0.4.4",
     "sandboxed-module": "^2.0.3"
   },
   "repository": "ccprog/svg-icon-toolbox",

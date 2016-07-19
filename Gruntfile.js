@@ -16,7 +16,17 @@ module.exports = function(grunt) {
     jasmine_nodejs: {
       options: {
           specNameSuffix: 'spec.js',
-          useHelpers: false
+          useHelpers: false,
+          reporters: {
+            console: {}
+          },
+          customReporters: [
+            require('./tests/lib/istanbul-reporter.js')({
+              coverageVar: '__coverage__',
+//              dir: './tests/coverage',
+              reports: ['text','json','html']
+            })
+          ]
       },
       default: {
           specs: [ 'tests/unit/**' ]
