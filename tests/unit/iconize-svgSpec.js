@@ -1,15 +1,18 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
-var $ = require('cheerio');
+var cheerio = require('cheerio');
+var async = require('async');
+var prd = require('pretty-data');
 
 describe("module iconize-svg", function () {
     var fs, stdin, utils, spawn, iconize, callback;
-    var sourceFn, root, exportOptions;
+    var sourceFn, source, $xml, exportOptions;
     var spawnCallback, writeCallbacks, spawnLineFn, normalizeCallbacks;
 
     function loadIconize (ids, dimensions) {
-        iconize(sourceFn, root, {ids: ids, exportOptions: exportOptions}, callback);
+        $xml = cheerio.load(source, { xmlMode: true });
+        iconize(sourceFn, $xml, {ids: ids, exportOptions: exportOptions}, callback);
         if (dimensions) {
             dimensions.forEach(spawnLineFn);
             spawnCallback(null);
@@ -42,12 +45,12 @@ describe("module iconize-svg", function () {
             return stdin;
         });
         iconize = SandboxedModule.require('../../lib/iconize-svg.js', {
-            requires: { 'fs': fs, './utils': utils, './spawn': spawn },
+            requires: { 'async': async, 'pretty-data': prd, 'fs': fs, './utils': utils, './spawn': spawn },
             globals: { 'console': { log: () => {} } }
         });
         callback = jasmine.createSpy('callback');
         sourceFn = 'source';
-        root = $.load('<?xml ?><svg width="480" height="260"/>', { xmlMode: true });
+        source = '<?xml ?><svg width="480" height="260"/>';
         exportOptions = {};
     });
 
@@ -111,14 +114,14 @@ describe("module iconize-svg", function () {
         );
         normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
-        var $svg = $.load(text, { xmlMode: true })('svg');
+        var $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('5 5 10 20');
         expect($svg.attr('width')).toBe('10');
         expect($svg.attr('height')).toBe('20');
         writeCallbacks['./obj1']();
         normalizeCallbacks['./object2.svg'](null, './obj2');
         text = fs.writeFile.calls.argsFor(1)[1];
-        $svg = $.load(text, { xmlMode: true })('svg');
+        $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('20 5 30 30');
         expect($svg.attr('width')).toBe('30');
         expect($svg.attr('height')).toBe('30');
@@ -139,7 +142,7 @@ describe("module iconize-svg", function () {
         );
         normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
-        var $svg = $.load(text, { xmlMode: true })('svg');
+        var $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('5 5 10 20');
         expect($svg.attr('width')).toBe('50');
         expect($svg.attr('height')).toBeUndefined();
@@ -148,20 +151,19 @@ describe("module iconize-svg", function () {
     });
 
     it("changes and restores cheerio root object", function () {
-        var sourceText = '<?xml ?><svg width="480" height="260">' +
+        source = '<?xml ?><svg width="480" height="260">' +
             '<g id="object2"/></svg>';
-        root = $.load(sourceText, { xmlMode: true });
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
         );
         normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
-        expect(text).not.toEqual(sourceText);
-        text = root.xml();
-        expect(text).not.toBe(sourceText);
+        expect(text).not.toEqual(source);
+        text = $xml.xml();
+        expect(text).not.toBe(source);
         writeCallbacks['./obj1']();
-        text = root.xml();
-        expect(text).toBe(sourceText);
+        text = $xml.xml();
+        expect(text).toBe(source);
     });
 });
