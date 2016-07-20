@@ -31,6 +31,10 @@ exports.load = function (fn, callback) {
             $ = cheerio.load(content.toString(), {
                 xmlMode: true
             });
+            if (!$('svg').length) {
+                // TODO: double call!
+                return utils.handleErr('No SVG content detected.', null, callback);
+            }
             sourceFn = fn;
             isOpen = true;
             console.log('OK');
@@ -103,6 +107,7 @@ exports.inline = function (opt, callback) {
 
     // collect external stylesheet
     stylesheet.collect(opt, (err, ruleset) => {
+        if (err) return callback(err);
         //collect internal stylesheets
         $('style').each((i, el) => {
              // make sure CDATA is stripped
