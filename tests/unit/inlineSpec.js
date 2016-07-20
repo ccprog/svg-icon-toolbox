@@ -1,7 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
-SandboxedModule.registerBuiltInSourceTransformer('istanbul');
+var isr = require('../lib/istanbul-reporter.js');
 var cheerio = require('cheerio');
 var css = require('css');
 var specificity = require('specificity');
@@ -27,7 +27,8 @@ describe("module inline", function () {
             sourceTransformers: {
                 suppressStdOut: function (source) {
                     return source.replace(/process\.stdout\.write/g, 'console.log');
-                }
+                },
+                istanbul: isr.transformer
             }
         });
 

@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var isr = require('../lib/istanbul-reporter.js');
 
 describe("module spawn", function () {
     var EventEmitter = require('events');
@@ -33,7 +34,10 @@ describe("module spawn", function () {
         };
         spawn = SandboxedModule.require('../../lib/spawn.js', {
             requires: { 'child_process': cp, './utils.js': utils },
-            globals: { 'console': console }
+            globals: { 'console': console },
+            sourceTransformers: {
+                istanbul: isr.transformer
+            }
         });
 
         callback = jasmine.createSpy('callback');

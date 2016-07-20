@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var isr = require('../lib/istanbul-reporter.js');
 var async = require('async');
 var path = require('path');
 
@@ -47,7 +48,8 @@ describe("module stylesheet, function collect", function () {
             sourceTransformers: {
                 suppressStdOut: function (source) {
                     return source.replace(/process\.stdout\.write/g, 'console.log');
-                }
+                },
+                istanbul: isr.transformer
             }
         });
 

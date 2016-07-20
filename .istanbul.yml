@@ -1,5 +1,0 @@
-instrumentation:
-    save-baseline: true
-    baseline-file: ./tests/coverage/coverage-baseline.json
-reporting:
-    dir: ./tests/coverage

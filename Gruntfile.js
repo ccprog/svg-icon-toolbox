@@ -21,11 +21,15 @@ module.exports = function(grunt) {
             console: {}
           },
           customReporters: [
-            require('./tests/lib/istanbul-reporter.js')({
-              coverageVar: '__coverage__',
-//              dir: './tests/coverage',
-              reports: ['text','json','html']
-            })
+            require('./tests/lib/istanbul-reporter.js').init({
+              instrumenting: {
+                coverageVariable: '__coverage__'
+              },
+              reporting: {
+                dir: './tests/coverage',
+                reports: ['text','json','html']
+              }
+          })
           ]
       },
       default: {

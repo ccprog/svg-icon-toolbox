@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var isr = require('../lib/istanbul-reporter.js');
 var async = require('async');
 
 describe("module iconize-png", function () {
@@ -35,7 +36,10 @@ describe("module iconize-png", function () {
         });
         iconize = SandboxedModule.require('../../lib/iconize-png.js', {
             requires: { 'async': async, './utils': utils, './spawn': spawn },
-            globals: { 'console': { log: () => {} } }
+            globals: { 'console': { log: () => {} } },
+            sourceTransformers: {
+                istanbul: isr.transformer
+            }
         });
         callback = jasmine.createSpy('callback');
         sourceFn = 'source';

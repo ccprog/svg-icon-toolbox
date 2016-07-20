@@ -1,7 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
-SandboxedModule.registerBuiltInSourceTransformer('istanbul');
+var isr = require('../lib/istanbul-reporter.js');
 
 describe("module utils", function () {
     var path, cp, console, utils, callback;
@@ -18,7 +18,10 @@ describe("module utils", function () {
         };
         utils = SandboxedModule.require('../../lib/utils.js', {
             requires: { 'path': path, 'child_process': cp },
-            globals: { 'console': console }
+            globals: { 'console': console },
+            sourceTransformers: {
+                istanbul: isr.transformer
+            }
         });
         callback = jasmine.createSpy('callback');
     });

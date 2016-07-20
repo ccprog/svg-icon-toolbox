@@ -1,6 +1,7 @@
 "use strict";
 
 var SandboxedModule = require('sandboxed-module');
+var isr = require('../lib/istanbul-reporter.js');
 var cheerio = require('cheerio');
 var async = require('async');
 var prd = require('pretty-data');
@@ -54,7 +55,10 @@ describe("module iconize-svg", function () {
         });
         iconize = SandboxedModule.require('../../lib/iconize-svg.js', {
             requires: { 'async': async, 'pretty-data': prd, 'fs': fs, './utils': utils, './spawn': spawn },
-            globals: { 'console': { log: () => {} } }
+            globals: { 'console': { log: () => {} } },
+            sourceTransformers: {
+                istanbul: isr.transformer
+            }
         });
         callback = jasmine.createSpy('callback');
         sourceFn = 'source';
