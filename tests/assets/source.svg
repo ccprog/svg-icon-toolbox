@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="480" height="260">
+  <defs>
+    <path id="path1"/>
+    <path id="path2"/>
+    <path id="path3"/>
+    <linearGradient id="grad1"/>
+    <linearGradient id="grad2"/>
+    <clipPath id="cp">
+      <use id="use1" xlink:href="#path1"/>
+    </clipPath>
+  </defs>
+  <g>
+    <g id="branch1">
+      <path id="path4"/>
+      <use id="use2" xlink:href="#path2"/>
+    </g>
+    <g id="branch2" clip-path="url(#cp)">
+      <use id="object1" xlink:href="#path4" style="opacity:0.8"/>
+      <g id="object2"><a xlink:href="#path3">
+        <rect id="rect1" style="fill:url(#grad1);stroke:#333"/>
+        <rect id="rect2" style="fill:url(#grad1);stroke:#999"/>
+      </a></g>
+    </g>
+  </g>
+  <g id="branch3">
+    <path id="path5"/>
+  </g>
+</svg>

@@ -4,10 +4,11 @@ var SandboxedModule = require('sandboxed-module');
 var isr = require('../lib/istanbul-reporter.js');
 var cheerio = require('cheerio');
 var async = require('async');
+var fs = require('fs');
 var prd = require('pretty-data');
 
 describe("module iconize-svg", function () {
-    var fs, stdin, utils, spawn, iconize, callback;
+    var stdin, utils, spawn, iconize, callback;
     var sourceFn, source, $xml, exportOptions;
     var spawnCallback, writeCallbacks, spawnLineFn, normalizeCallbacks;
 
@@ -28,12 +29,9 @@ describe("module iconize-svg", function () {
     beforeEach(function () {
         writeCallbacks = {};
         normalizeCallbacks = {};
-        fs = {
-            writeFile: function(fn, text, callback) {
-                writeCallbacks[fn] = callback;
-            }
-        };
-        spyOn(fs, 'writeFile').and.callThrough();
+        spyOn(fs, 'writeFile').and.callFake(function(fn, text, callback) {
+            writeCallbacks[fn] = callback;
+        });
         stdin = {
             write: jasmine.createSpy('write')
         };
@@ -198,5 +196,57 @@ describe("module iconize-svg", function () {
         writeCallbacks['./obj1']();
         text = $xml.xml();
         expect(text).toBe(source);
+    });
+
+    it("reduces complex files", function (done) {
+        fs.readFile(`tests/assets/source.svg`, function (err, content) {
+            if (err) throw err;
+            source = content.toString();
+            loadIconize(
+                ['object1', 'object2'],
+                ['object1,5,5,10,20', 'object2,20,5,30,30']
+            );
+            normalizeCallbacks['./object1.svg'](null, './obj1');
+            var objText1 = fs.writeFile.calls.argsFor(0)[1];
+            var $obj1 = cheerio.load(objText1, {xmlMode: true});
+            expect($obj1('#path1').length).toBe(1);
+            expect($obj1('#path2').length).toBe(0);
+            expect($obj1('#path3').length).toBe(0);
+            expect($obj1('#grad1').length).toBe(0);
+            expect($obj1('#grad2').length).toBe(0);
+            expect($obj1('#cp').length).toBe(1);
+            expect($obj1('#use1').length).toBe(1);
+            expect($obj1('#branch1').length).toBe(1);
+            expect($obj1('#path4').length).toBe(1);
+            expect($obj1('#use2').length).toBe(0);
+            expect($obj1('#branch2').length).toBe(1);
+            expect($obj1('#object1').length).toBe(1);
+            expect($obj1('#object2').length).toBe(0);
+            expect($obj1('#rect1').length).toBe(0);
+            expect($obj1('#rect2').length).toBe(0);
+            expect($obj1('#branch3').length).toBe(0);
+            expect($obj1('#path5').length).toBe(0);
+            normalizeCallbacks['./object2.svg'](null, './obj2');
+            var objText2 = fs.writeFile.calls.argsFor(1)[1];
+            var $obj2 = cheerio.load(objText2, {xmlMode: true});
+            expect($obj2('#path1').length).toBe(1);
+            expect($obj2('#path2').length).toBe(0);
+            expect($obj2('#path3').length).toBe(0);
+            expect($obj2('#grad1').length).toBe(1);
+            expect($obj2('#grad2').length).toBe(0);
+            expect($obj2('#cp').length).toBe(1);
+            expect($obj2('#use1').length).toBe(1);
+            expect($obj2('#branch1').length).toBe(0);
+            expect($obj2('#path4').length).toBe(0);
+            expect($obj2('#use2').length).toBe(0);
+            expect($obj2('#branch2').length).toBe(1);
+            expect($obj2('#object1').length).toBe(0);
+            expect($obj2('#object2').length).toBe(1);
+            expect($obj2('#rect1').length).toBe(1);
+            expect($obj2('#rect2').length).toBe(1);
+            expect($obj2('#branch3').length).toBe(0);
+            expect($obj2('#path5').length).toBe(0);
+            done();
+        });
     });
 });
