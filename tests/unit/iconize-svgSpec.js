@@ -41,7 +41,9 @@ describe("module iconize-svg", function () {
             },
             handleErr: function (err, cmd, callback) {
                 callback('err');
-            }
+            },
+            computeTransform: jasmine.createSpy('computeTransform')
+                                .and.returnValue(null)
         };
         spyOn(utils, 'normalize').and.callThrough();
         spyOn(utils, 'handleErr').and.callThrough();
@@ -130,6 +132,7 @@ describe("module iconize-svg", function () {
             ['object1', 'object2'],
             ['object1,5,5,10,20', 'object2,20,5,30,30', 'object3,5,30,15,25']
         );
+        expect(utils.computeTransform).toHaveBeenCalledWith('480', '260', undefined, undefined);
         normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
         var $svg = cheerio.load(text, { xmlMode: true })('svg');
@@ -145,6 +148,33 @@ describe("module iconize-svg", function () {
         expect($svg.attr('height')).toBe('30');
         writeCallbacks['./obj2']();
         expect(callback).toHaveBeenCalledWith(null);
+    });
+
+    it("detects root viewport mods", function () {
+        source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
+                 'transform="transform1" />';
+        utils.computeTransform.and.returnValue('transform2');
+        loadIconize(
+            ['object1'],
+            ['object1,5,5,10,20']
+        );
+        expect(utils.computeTransform).toHaveBeenCalledWith(undefined, undefined, 'vb', 'par');
+        normalizeCallbacks['./object1.svg'](null, './obj1');
+        var text = fs.writeFile.calls.argsFor(0)[1];
+        var $svg = cheerio.load(text, { xmlMode: true })('svg');
+        expect($svg.attr('transform')).toBe('transform2 transform1');
+        source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
+                 'width="480" height="260" />';
+        utils.computeTransform.and.returnValue('transform');
+        loadIconize(
+            ['object1'],
+            ['object1,5,5,10,20']
+        );
+        expect(utils.computeTransform).toHaveBeenCalledWith('480', '260', 'vb', 'par');
+        normalizeCallbacks['./object1.svg'](null, './obj1');
+        text = fs.writeFile.calls.argsFor(1)[1];
+        $svg = cheerio.load(text, { xmlMode: true })('svg');
+        expect($svg.attr('transform')).toBe('transform');
     });
 
     it("understands exportOptions", function () {

@@ -75,4 +75,94 @@ describe("module utils", function () {
             expect(callback).toHaveBeenCalledWith('message');
         });
     });
+
+    describe("function computeTransform", function () {
+        it("reacts on invalid parameters", function () {
+            var matches = [
+                {
+                    args: [null, '10', null, 'none'],
+                    result: 'error'
+                },
+                {
+                    args: ['21', null, null,'none'],
+                    result: 'error'
+                }
+            ];
+            matches.forEach(function (match) {
+                var func = function () {
+                    return utils.computeTransform.apply(null, match.args);
+                };
+                expect(func).toThrow();
+            });
+        });
+
+        it("computes a transform expression from incomplete parameters", function () {
+            var matches = [
+                {
+                    args: ['21', null, '11 13 3 2', 'none'],
+                    result: 'translate(11 13) scale(7 1)'
+                },
+                {
+                    args: [null, '10', '11 13 3 2', 'none'],
+                    result: 'translate(11 13) scale(1 5)'
+                },
+                {
+                    args: ['21', '10', null, 'none'],
+                    result: null
+                },
+                {
+                    args: ['21','10', '11 13 3 2', null],
+                    result: 'translate(-6 -14.5) scale(5 5)'
+                }
+            ];
+            matches.forEach(function (match) {
+                expect(utils.computeTransform.apply(null, match.args)).toBe(match.result);
+            });
+        });
+
+        it("computes a simplified transform expression", function () {
+            var matches = [
+                {
+                    args: ['21', '10', '11 13 3 2', 'none'],
+                    result: 'translate(11 13) scale(7 5)'
+                },
+                {
+                    args: ['3', '2', '11 13 3 2', 'none'],
+                    result: 'translate(11 13)'
+                },
+                {
+                    args: ['21', '10', '0 0 3 2', 'none'],
+                    result: 'scale(7 5)'
+                }
+            ];
+            matches.forEach(function (match) {
+                expect(utils.computeTransform.apply(null, match.args)).toBe(match.result);
+            });
+        });
+
+        it("computes a complete transform expression", function () {
+            var numbers = ['21', '10', '11 13 3 2'];
+            var matches = [
+                {
+                    args: numbers.concat('xMidYMid'),
+                    result: 'translate(-6 -14.5) scale(5 5)'
+                },
+                {
+                    args: numbers.concat('xMinYMin'),
+                    result: 'translate(11 13) scale(5 5)'
+                },
+                {
+                    args: numbers.concat('xMaxYMax meet'),
+                    result: 'translate(-23 -42) scale(5 5)'
+                },
+                {
+                    args: numbers.concat('xMinYMin slice'),
+                    result: 'translate(11 13) scale(7 7)'
+                }
+            ];
+            matches.forEach(function (match) {
+                expect(utils.computeTransform.apply(null, match.args)).toBe(match.result);
+            });
+        });
+    });
 });
