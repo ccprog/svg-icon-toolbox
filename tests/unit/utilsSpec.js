@@ -100,11 +100,11 @@ describe("module utils", function () {
             var matches = [
                 {
                     args: ['21', null, '11 13 3 2', 'none'],
-                    result: 'translate(11 13) scale(7 1)'
+                    result: 'translate(-77 -13) scale(7 1)'
                 },
                 {
                     args: [null, '10', '11 13 3 2', 'none'],
-                    result: 'translate(11 13) scale(1 5)'
+                    result: 'translate(-11 -65) scale(1 5)'
                 },
                 {
                     args: ['21', '10', null, 'none'],
@@ -112,7 +112,7 @@ describe("module utils", function () {
                 },
                 {
                     args: ['21','10', '11 13 3 2', null],
-                    result: 'translate(-6 -14.5) scale(5 5)'
+                    result: 'translate(-52 -65) scale(5 5)'
                 }
             ];
             matches.forEach(function (match) {
@@ -124,11 +124,11 @@ describe("module utils", function () {
             var matches = [
                 {
                     args: ['21', '10', '11 13 3 2', 'none'],
-                    result: 'translate(11 13) scale(7 5)'
+                    result: 'translate(-77 -65) scale(7 5)'
                 },
                 {
                     args: ['3', '2', '11 13 3 2', 'none'],
-                    result: 'translate(11 13)'
+                    result: 'translate(-11 -13)'
                 },
                 {
                     args: ['21', '10', '0 0 3 2', 'none'],
@@ -145,19 +145,27 @@ describe("module utils", function () {
             var matches = [
                 {
                     args: numbers.concat('xMidYMid'),
-                    result: 'translate(-6 -14.5) scale(5 5)'
+                    result: 'translate(-52 -65) scale(5 5)'
                 },
                 {
                     args: numbers.concat('xMinYMin'),
-                    result: 'translate(11 13) scale(5 5)'
+                    result: 'translate(-55 -65) scale(5 5)'
                 },
                 {
                     args: numbers.concat('xMaxYMax meet'),
-                    result: 'translate(-23 -42) scale(5 5)'
+                    result: 'translate(-49 -65) scale(5 5)'
                 },
                 {
                     args: numbers.concat('xMinYMin slice'),
-                    result: 'translate(11 13) scale(7 7)'
+                    result: 'translate(-77 -91) scale(7 7)'
+                },
+                {
+                    args: numbers.concat('xMidYMid slice'),
+                    result: 'translate(-77 -93) scale(7 7)'
+                },
+                {
+                    args: numbers.concat('xMaxYMax slice'),
+                    result: 'translate(-77 -95) scale(7 7)'
                 }
             ];
             matches.forEach(function (match) {
