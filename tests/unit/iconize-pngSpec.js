@@ -9,11 +9,12 @@ describe("module iconize-png", function () {
     var sourceFn, exportOptions;
     var spawnLineFn, normalizeCallbacks = {};
 
-    function loadIconize (ids, dir, suffix) {
+    function loadIconize (ids, dir, suffix, postProcess) {
         iconize(sourceFn, {
             ids: ids,
             dir: dir,
             suffix: suffix,
+            postProcess: postProcess,
             exportOptions: exportOptions
         }, callback);
     }
@@ -77,23 +78,13 @@ describe("module iconize-png", function () {
         expect(stdin.write.calls.count()).toBe(3);
     });
 
-    it("pipes file to optipng from inkscape stdout", function () {
-        loadIconize([]);
-        expect(spawn.calls.count()).toBe(1);
-        // original inkscape stdout
-        [
-            'Exporting only object with id="object"; all other objects hidden',
-            'Background RRGGBBAA: ffffff00',
-            'Area 4:236:56:260 exported to 52 x 24 pixels (90 dpi)',
-            'Bitmap saved as: object.png'
-        ].forEach(spawnLineFn);
-        expect(spawn.calls.count()).toBe(2);
-        expect(spawn).toHaveBeenCalledWith(
-            'optipng -o7 --quiet "object.png"',
-            null, false,
-            callback
-        );
-    });
+    // original inkscape stdout
+    var outLines = [
+        'Exporting only object with id="object"; all other objects hidden',
+        'Background RRGGBBAA: ffffff00',
+        'Area 4:236:56:260 exported to 52 x 24 pixels (90 dpi)',
+        'Bitmap saved as: object.png'
+    ];
 
     it("reacts on normalize errors", function () {
         loadIconize(['object1']);
@@ -139,5 +130,25 @@ describe("module iconize-png", function () {
         expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1-suffix.png');
         loadIconize(['object1'], 'dir/');
         expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.png');
+    });
+
+    it("pipes file to postProcess cli from inkscape stdout", function () {
+        loadIconize([], null, null, 'command');
+        expect(spawn.calls.count()).toBe(1);
+        outLines.forEach(spawnLineFn);
+        expect(spawn.calls.count()).toBe(2);
+        expect(spawn).toHaveBeenCalledWith(
+            'command "object.png"',
+            null, false,
+            callback
+        );
+    });
+
+    it("pipes file to postProcess function from inkscape stdout", function () {
+        var postProcess = jasmine.createSpy('postProcess');
+        loadIconize([], null, null, postProcess);
+        outLines.forEach(spawnLineFn);
+        expect(spawn.calls.count()).toBe(1);
+        expect(postProcess).toHaveBeenCalledWith('object.png', callback);
     });
 });

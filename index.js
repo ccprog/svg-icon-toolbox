@@ -152,6 +152,10 @@ exports.write = function (targetFn, callback) {
  *   format: png or svg,
  *   dir: directory to write to, defaults to ".",
  *   postfix: name exported files in the form ${id}${postfix}.${format}
+ *   postProcess: executed on the exported file. if a string, as a cli command, if a
+ *     function, directly. Both get the qualified file name as argument. A function
+ *     should take the arguments (fileName, callback) and execute the callback with
+ *     (err).
  *   exportOptions: 
  *     - for Png, the following inkscape --export-${cmd} command line options
  *     are permissible: background, background-opacity, use-hints, dpi, text-to-path,

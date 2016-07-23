@@ -12,12 +12,13 @@ describe("module iconize-svg", function () {
     var sourceFn, source, $xml, exportOptions;
     var spawnCallback, writeCallbacks, spawnLineFn, normalizeCallbacks;
 
-    function loadIconize (ids, dimensions, dir, suffix) {
+    function loadIconize (ids, dimensions, dir, suffix, postProcess) {
         $xml = cheerio.load(source, { xmlMode: true });
         iconize(sourceFn, $xml, {
             ids: ids,
             dir: dir,
             suffix: suffix,
+            postProcess: postProcess,
             exportOptions: exportOptions
         }, callback);
         if (dimensions) {
@@ -209,6 +210,34 @@ describe("module iconize-svg", function () {
             'dir/'
         );
         expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.svg');
+    });
+
+    it("pipes file to postProcess cli from inkscape stdout", function () {
+        loadIconize(
+            ['object1'], ['object1,5,5,10,20'],
+            null, null, 'command'
+        );
+        expect(spawn.calls.count()).toBe(1);
+        normalizeCallbacks['./object1.svg'](null, './obj1');
+        writeCallbacks['./obj1']();
+        expect(spawn.calls.count()).toBe(2);
+        expect(spawn.calls.argsFor(1)[0]).toBe('command "./obj1"');
+        expect(spawn.calls.argsFor(1)[1]).toBe(null);
+        expect(spawn.calls.argsFor(1)[2]).toBe(false);
+        expect(typeof spawn.calls.argsFor(1)[3]).toBe('function');
+    });
+
+    it("pipes file to postProcess function from inkscape stdout", function () {
+        var postProcess = jasmine.createSpy('postProcess');
+        loadIconize(
+            ['object1'], ['object1,5,5,10,20'],
+            null, null, postProcess
+        );
+        normalizeCallbacks['./object1.svg'](null, './obj1');
+        writeCallbacks['./obj1']();
+        expect(spawn.calls.count()).toBe(1);
+        expect(postProcess.calls.argsFor(0)[0]).toBe('./obj1');
+        expect(typeof postProcess.calls.argsFor(0)[1]).toBe('function');
     });
 
     it("changes and restores cheerio root object", function () {
