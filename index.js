@@ -14,9 +14,14 @@ var $, sourceFn;
 var isOpen = false;
 
 /**
- * load a svg file for editing and/or exporting from
+ * @module toolbox
+ */
+
+/**
+ * Load a svg file for editing and/or exporting from.
  * 
  * @param {string} fn qualified file name
+ * @param {function} callback node style error callback `(any) => void`
  * @return void
  */
 exports.load = function (fn, callback) {
@@ -47,15 +52,15 @@ exports.load = function (fn, callback) {
 };
 
 /**
- * write stylesheets into the loaded file;
- * all pre-existing style sheets are removed
+ * Write stylesheets into the loaded file; all pre-existing style sheets are removed.<br/>
+ * The callback will return an error if no file has been previously loaded.
  * 
- * @param {{ src: string[], sassOptions: Object= }} opt
- *   src: single .css or .scss file name or Array of file names
- *   sassOptions: node-sass compiler options, excluding file, data and
- *     sourceMap. Note that includePaths defaults to the respective
+ * @param {string|string[]} opt.src single .css or .scss file name or Array of file names
+ * @param {Object} [opt.sassOptions] node-sass compiler options, excluding file,
+ *     data and sourceMap. Note that `includePaths` defaults to the respective
  *     directory of each file if omitted
- * @param {function (any)} callback error callback
+ * @param {function} callback node style error callback `(any) => void`
+ * @return void
  */
 exports.stylize = function (opt, callback) {
     if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
@@ -88,17 +93,17 @@ exports.stylize = function (opt, callback) {
 };
 
 /**
- * distribute all styles from the style sheets of the loaded file
- * to inline style attributes. Note that @-rules are ignored; the <style>
- * elements are subsequently removed.
+ * Distribute all styles from the style sheets of the loaded file
+ * to inline style attributes. Note that @-rules are ignored; the `<style>`
+ * elements are subsequently removed.<br/>
+ * The callback will return an error if no file has been previously loaded.
  * 
- * @param {{ src: string[], sassOptions: Object= }} opt
- *   src: single .css or .scss file name or Array of file names of extra
- *      stylesheet(s) to apply before each internal stylesheet
- *   sassOptions: node-sass compiler options, excluding file, data and
- *     sourceMap. Note that includePaths defaults to the respective
+ * @param {string|string[]} opt.src single .css or .scss file name or Array of file
+ *      names of extra stylesheet(s) to apply before each internal stylesheet
+ * @param {Object} [opt.sassOptions] node-sass compiler options, excluding file,
+ *     data and sourceMap. Note that `includePaths` defaults to the respective
  *     directory of each file if omitted
- * @param {function (any)} callback error callback
+ * @param {function} callback node style error callback `(any) => void`
  * @return void
  */
 exports.inline = function (opt, callback) {
@@ -122,10 +127,12 @@ exports.inline = function (opt, callback) {
 };
 
 /**
- * write the loaded file to a target file
+ * Write the loaded file to a target file.<br/>
+ * The callback will return an error if no file has been previously loaded.
  * 
- * @param {string} targetFn qualified file name
- * @param {function (any)} callback error callback
+ * @param {string} [targetFn] qualified file name. Defaults to overwriting
+ *     the source of the loaded file.
+ * @param {function} callback node style error callback `(any) => void`
  * @return void
  */
 exports.write = function (targetFn, callback) {
@@ -145,25 +152,27 @@ exports.write = function (targetFn, callback) {
 };
 
 /**
- * export a list of objects from the loaded file to separate icon files
+ * Export a list of objects from the loaded file to separate icon files.<br/>
+ * The callback will return an error if no file has been previously loaded.
  * 
- * @param {{ ids: string[], format: string, dir: string=, postfix: string=, exportOptions: Object }} opt
- *   ids: list of object ids to export,
- *   format: png or svg,
- *   dir: directory to write to, defaults to ".",
- *   postfix: name exported files in the form ${id}${postfix}.${format}
- *   postProcess: executed on the exported file. if a string, as a cli command, if a
- *     function, directly. Both get the qualified file name as argument. A function
- *     should take the arguments (fileName, callback) and execute the callback with
- *     (err).
- *   exportOptions: 
- *     - for Png, the following inkscape --export-${cmd} command line options
- *     are permissible: background, background-opacity, use-hints, dpi, text-to-path,
- *     ignore-filters, width and height.
- *     - for Svg, width, height and preserveAspectRatio can be set as attributes of the
- *     root svg element. The viewBox attribute will be set to the bounding box of the
- *     exported object.
- * @param {function (any)} callback error callback
+ * @param {string[]} opt.ids list of object ids to export
+ * @param {string} opt.format png or svg
+ * @param {string} [opt.dir=.] directory to write to
+ * @param {string} [opt.postfix] name exported files in the form
+ *     `${id}${postfix}.${format}`
+ * @param {string|function} [opt.postProcess]: executed on the
+ *     exported file. If a string, as a CLI command, if a function, directly.
+ *     Both get the qualified file name as argument. A function should have
+ *     the form `(fileName, callback) => void` and execute the callback with
+ *     `(err)`.
+ * @param {Object} [opt.exportOptions]  
+ *     for Png, the following `inkscape --export-${cmd}` command line options
+ *       are permissible: background, background-opacity, use-hints, dpi,
+ *       text-to-path, ignore-filters, width and height.<br/>
+ *     for Svg, `width`, `height` and `preserveAspectRatio` can be set as attributes
+ *       of the root svg element. The `viewBox` attribute will be set to the bounding
+ *       box of the exported object.
+ * @param {function} callback node style error callback `(any) => void`
  * @return void
  */
 exports.export = function (opt, callback) {

@@ -1,0 +1,49 @@
+# svg-icon-toolbox
+
+A toolbox for svg icon and style assets workflows. This is still
+work in progress.
+
+## Usage
+
+```js
+var toolbox = require('svg-icon-toolbox');
+var eachSeries = require('async').eachSeries;
+
+eachSeries([
+    { task: 'load', arg: 'src/assets.svg' },
+    { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
+    { task: 'write', arg: 'src/assets.svg' },
+    { task: 'export', arg: {
+        ids: list,
+        format: 'png',
+        dir: 'assets/'
+        exportOptions: { dpi: 180 }
+    } }
+], (item, callback) => {
+    toolbox[item.task](item.arg, callback);
+});
+```
+
+## API
+
+{{#module name="toolbox"~}}
+{{#children inherited=undefined ~}}
+{{>header~}}
+{{>deprecated~}}
+{{>description~}}
+{{>summary~}}
+{{>returns~}}
+{{>throws~}}
+{{>this~}}
+{{>access~}}
+{{>requires~}}
+{{>customTags~}}
+{{>see~}}
+{{>since~}}
+{{>version~}}
+{{>todo~}}
+{{>params~}}
+{{>examples~}}
+{{>separator~}}
+{{/children~}}
+{{/module}}

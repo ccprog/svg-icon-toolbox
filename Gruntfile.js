@@ -35,9 +35,21 @@ module.exports = function(grunt) {
       default: {
           specs: [ 'tests/unit/**' ]
       }
+    },
+    jsdoc2md: {
+      oneOutputFile: {
+        options: {
+          'module-index-format': 'none',
+          'name-format': 'code',
+          template: grunt.file.read('doc/readme.hbs')
+        },
+        src: ['index.js'],
+        dest: 'README.md'
+      }
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-jasmine-nodejs');
+  grunt.loadNpmTasks('grunt-jsdoc-to-markdown');
 };
