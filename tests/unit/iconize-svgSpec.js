@@ -241,8 +241,10 @@ describe("module iconize-svg", function () {
     });
 
     it("changes and restores cheerio root object", function () {
-        source = '<?xml ?><svg width="480" height="260">' +
+        source = '<?xml ?><svg height="260" transform="transform1" ' +
+            'viewBox="vb" preserveAspectRatio="par">' +
             '<g id="object2"/></svg>';
+        utils.computeTransform.and.returnValue(['transform2']);
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
