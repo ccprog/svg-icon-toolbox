@@ -44,7 +44,7 @@ describe("module iconize-svg", function () {
                 callback('err');
             },
             computeTransform: jasmine.createSpy('computeTransform')
-                                .and.returnValue(null)
+                                .and.returnValue([])
         };
         spyOn(utils, 'normalize').and.callThrough();
         spyOn(utils, 'handleErr').and.callThrough();
@@ -154,7 +154,7 @@ describe("module iconize-svg", function () {
     it("detects root viewport mods", function () {
         source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
                  'transform="transform1" />';
-        utils.computeTransform.and.returnValue('transform2');
+        utils.computeTransform.and.returnValue(['transform2']);
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
@@ -166,7 +166,7 @@ describe("module iconize-svg", function () {
         expect($svg.attr('transform')).toBe('transform2 transform1');
         source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
                  'width="480" height="260" />';
-        utils.computeTransform.and.returnValue('transform');
+        utils.computeTransform.and.returnValue(['transform']);
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
