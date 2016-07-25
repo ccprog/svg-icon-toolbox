@@ -5,12 +5,13 @@ var isr = require('../lib/istanbul-reporter.js');
 var cheerio = require('cheerio');
 var async = require('async');
 var fs = require('fs');
+var path = require('path');
 var prd = require('pretty-data');
 
 describe("module iconize-svg", function () {
     var stdin, utils, spawn, iconize, callback;
     var sourceFn, source, $xml, exportOptions;
-    var spawnCallback, writeCallbacks, spawnLineFn, normalizeCallbacks;
+    var spawnCallback, writeCallbacks, spawnLineFn;
 
     function loadIconize (ids, dimensions, dir, suffix, postProcess) {
         $xml = cheerio.load(source, { xmlMode: true });
@@ -28,8 +29,8 @@ describe("module iconize-svg", function () {
     }
 
     beforeEach(function () {
+        spyOn(path, 'normalize').and.callThrough();
         writeCallbacks = {};
-        normalizeCallbacks = {};
         spyOn(fs, 'writeFile').and.callFake(function(fn, text, callback) {
             writeCallbacks[fn] = callback;
         });
@@ -37,16 +38,12 @@ describe("module iconize-svg", function () {
             write: jasmine.createSpy('write')
         };
         utils = {
-            normalize: function (fn, callback) {
-                normalizeCallbacks[fn] = callback;
-            },
             handleErr: function (err, cmd, callback) {
                 callback('err');
             },
             computeTransform: jasmine.createSpy('computeTransform')
                                 .and.returnValue([])
         };
-        spyOn(utils, 'normalize').and.callThrough();
         spyOn(utils, 'handleErr').and.callThrough();
         spawn = jasmine.createSpy('spawn')
                 .and.callFake(function (cmd, lineFn, delay, callback) {
@@ -55,7 +52,8 @@ describe("module iconize-svg", function () {
             return stdin;
         });
         iconize = SandboxedModule.require('../../lib/iconize-svg.js', {
-            requires: { 'async': async, 'pretty-data': prd, 'fs': fs, './utils': utils, './spawn': spawn },
+            requires: { 'async': async, 'path': path, 'pretty-data': prd, 'fs': fs,
+                        './utils': utils, './spawn': spawn },
             globals: { 'console': { log: () => {} } },
             sourceTransformers: {
                 istanbul: isr.transformer
@@ -86,32 +84,31 @@ describe("module iconize-svg", function () {
 
     it("writes to target file name", function () {
         loadIconize(
-            ['object1', 'object2'],
+           ['object1', 'object2'],
             ['object1,5,5,10,20', 'object2,20,5,30,30']
         );
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1.svg');
-        normalizeCallbacks['./object1.svg'](null, './obj1');
-        expect(fs.writeFile.calls.argsFor(0)[0]).toBe('./obj1');
+        var files = [
+            fs.writeFile.calls.argsFor(0)[0],
+            fs.writeFile.calls.argsFor(1)[0]
+        ];
+        expect(files).toContain('object1.svg');
+        expect(files).toContain('object2.svg');
         expect(typeof fs.writeFile.calls.argsFor(0)[1]).toBe('string');
         expect(typeof fs.writeFile.calls.argsFor(0)[2]).toBe('function');
-        writeCallbacks['./obj1']();
-        expect(utils.normalize.calls.argsFor(1)[0]).toBe('./object2.svg');
-        normalizeCallbacks['./object2.svg'](null, './obj2');
-        expect(fs.writeFile.calls.argsFor(1)[0]).toBe('./obj2');
         expect(typeof fs.writeFile.calls.argsFor(1)[1]).toBe('string');
         expect(typeof fs.writeFile.calls.argsFor(1)[2]).toBe('function');
-        writeCallbacks['./obj2']();
+        writeCallbacks['object1.svg']();
+        writeCallbacks['object2.svg']();
         expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("reacts on normalize errors", function () {
+        path.normalize.and.throwError('message');
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
         );
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1.svg');
-        normalizeCallbacks['./object1.svg']('message');
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('message');
+        expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
         expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
         expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
         expect(callback).toHaveBeenCalledWith('err');
@@ -134,20 +131,18 @@ describe("module iconize-svg", function () {
             ['object1,5,5,10,20', 'object2,20,5,30,30', 'object3,5,30,15,25']
         );
         expect(utils.computeTransform).toHaveBeenCalledWith('480', '260', undefined, undefined);
-        normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
         var $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('5 5 10 20');
         expect($svg.attr('width')).toBe('10');
         expect($svg.attr('height')).toBe('20');
-        writeCallbacks['./obj1']();
-        normalizeCallbacks['./object2.svg'](null, './obj2');
+        writeCallbacks['object1.svg']();
         text = fs.writeFile.calls.argsFor(1)[1];
         $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('20 5 30 30');
         expect($svg.attr('width')).toBe('30');
         expect($svg.attr('height')).toBe('30');
-        writeCallbacks['./obj2']();
+        writeCallbacks['object2.svg']();
         expect(callback).toHaveBeenCalledWith(null);
     });
 
@@ -160,7 +155,6 @@ describe("module iconize-svg", function () {
             ['object1,5,5,10,20']
         );
         expect(utils.computeTransform).toHaveBeenCalledWith(undefined, undefined, 'vb', 'par');
-        normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
         var $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('transform')).toBe('transform2 transform1');
@@ -172,7 +166,6 @@ describe("module iconize-svg", function () {
             ['object1,5,5,10,20']
         );
         expect(utils.computeTransform).toHaveBeenCalledWith('480', '260', 'vb', 'par');
-        normalizeCallbacks['./object1.svg'](null, './obj1');
         text = fs.writeFile.calls.argsFor(1)[1];
         $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('transform')).toBe('transform');
@@ -189,7 +182,6 @@ describe("module iconize-svg", function () {
             ['object1'],
             ['object1,5,5,10,20']
         );
-        normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
         var $svg = cheerio.load(text, { xmlMode: true })('svg');
         expect($svg.attr('viewBox')).toBe('5 5 10 20');
@@ -204,12 +196,12 @@ describe("module iconize-svg", function () {
             ['object1'], ['object1,5,5,10,20'],
             null, '-suffix'
         );
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1-suffix.svg');
+        expect(fs.writeFile.calls.argsFor(0)[0]).toBe('object1-suffix.svg');
         loadIconize(
             ['object1'], ['object1,5,5,10,20'],
             'dir/'
         );
-        expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.svg');
+        expect(fs.writeFile.calls.argsFor(1)[0]).toBe('dir/object1.svg');
     });
 
     it("pipes file to postProcess cli from inkscape stdout", function () {
@@ -218,10 +210,9 @@ describe("module iconize-svg", function () {
             null, null, 'command'
         );
         expect(spawn.calls.count()).toBe(1);
-        normalizeCallbacks['./object1.svg'](null, './obj1');
-        writeCallbacks['./obj1']();
+        writeCallbacks['object1.svg']();
         expect(spawn.calls.count()).toBe(2);
-        expect(spawn.calls.argsFor(1)[0]).toBe('command "./obj1"');
+        expect(spawn.calls.argsFor(1)[0]).toBe('command "object1.svg"');
         expect(spawn.calls.argsFor(1)[1]).toBe(null);
         expect(spawn.calls.argsFor(1)[2]).toBe(false);
         expect(typeof spawn.calls.argsFor(1)[3]).toBe('function');
@@ -233,10 +224,9 @@ describe("module iconize-svg", function () {
             ['object1'], ['object1,5,5,10,20'],
             null, null, postProcess
         );
-        normalizeCallbacks['./object1.svg'](null, './obj1');
-        writeCallbacks['./obj1']();
+        writeCallbacks['object1.svg']();
         expect(spawn.calls.count()).toBe(1);
-        expect(postProcess.calls.argsFor(0)[0]).toBe('./obj1');
+        expect(postProcess.calls.argsFor(0)[0]).toBe('object1.svg');
         expect(typeof postProcess.calls.argsFor(0)[1]).toBe('function');
     });
 
@@ -249,12 +239,11 @@ describe("module iconize-svg", function () {
             ['object1'],
             ['object1,5,5,10,20']
         );
-        normalizeCallbacks['./object1.svg'](null, './obj1');
         var text = fs.writeFile.calls.argsFor(0)[1];
         expect(text).not.toEqual(source);
         text = $xml.xml();
         expect(text).not.toBe(source);
-        writeCallbacks['./obj1']();
+        writeCallbacks['object1.svg']();
         text = $xml.xml();
         expect(text).toBe(source);
     });
@@ -267,8 +256,14 @@ describe("module iconize-svg", function () {
                 ['object1', 'object2'],
                 ['object1,5,5,10,20', 'object2,20,5,30,30']
             );
-            normalizeCallbacks['./object1.svg'](null, './obj1');
-            var objText1 = fs.writeFile.calls.argsFor(0)[1];
+            var objText1, objText2;
+            if (fs.writeFile.calls.argsFor(0)[0] = 'object1.svg') {
+                objText1 = fs.writeFile.calls.argsFor(0)[1];
+                objText2 = fs.writeFile.calls.argsFor(1)[1];
+            } else {
+                objText1 = fs.writeFile.calls.argsFor(1)[1];
+                objText2 = fs.writeFile.calls.argsFor(0)[1];
+            }
             var $obj1 = cheerio.load(objText1, {xmlMode: true});
             expect($obj1('#path1').length).toBe(1);
             expect($obj1('#path2').length).toBe(0);
@@ -287,8 +282,6 @@ describe("module iconize-svg", function () {
             expect($obj1('#rect2').length).toBe(0);
             expect($obj1('#branch3').length).toBe(0);
             expect($obj1('#path5').length).toBe(0);
-            normalizeCallbacks['./object2.svg'](null, './obj2');
-            var objText2 = fs.writeFile.calls.argsFor(1)[1];
             var $obj2 = cheerio.load(objText2, {xmlMode: true});
             expect($obj2('#path1').length).toBe(1);
             expect($obj2('#path2').length).toBe(0);

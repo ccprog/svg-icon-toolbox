@@ -3,6 +3,8 @@
 var cheerio = require('cheerio');
 var async = require('async');
 var fs = require('fs');
+var path = require('path');
+var normalize = async.asyncify(path.normalize);
 
 var utils = require('./lib/utils.js');
 var stylesheet = require('./lib/stylesheet.js');
@@ -26,7 +28,7 @@ var isOpen = false;
  */
 exports.load = function (fn, callback) {
     async.waterfall([
-        async.apply(utils.normalize, fn),
+        async.apply(normalize, fn),
         async.asyncify((fn) => {
             process.stdout.write(`Reading ${fn}...`);
             return fn;
@@ -139,7 +141,7 @@ exports.write = function (targetFn, callback) {
     if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
 
     async.waterfall([
-        async.apply(utils.normalize, targetFn || sourceFn),
+        async.apply(normalize, targetFn || sourceFn),
         (targetFn, next) => {
             process.stdout.write(`Exporting ${targetFn}...`);
             fs.writeFile(targetFn, $.xml(), next);
@@ -185,7 +187,7 @@ exports.export = function (opt, callback) {
     if (!opt.exportOptions) opt.exportOptions = {};
 
     async.waterfall([
-        async.apply(utils.normalize, opt.dir),
+        async.apply(normalize, opt.dir || '.'),
         async.apply(utils.testDir)
     ], (err) => {
         if (err) return utils.handleErr(err, 'file I/O', callback);

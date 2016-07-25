@@ -4,6 +4,7 @@ var SandboxedModule = require('sandboxed-module');
 var isr = require('../lib/istanbul-reporter.js');
 var async = require('async');
 var cheerio = require('cheerio');
+var path = require('path');
 
 describe("module main", function () {
     var fs, utils, toolbox, callback;
@@ -11,15 +12,14 @@ describe("module main", function () {
 
     function loadContent(text, next) {
         toolbox.load('source', callback);
-        utilsCallbacks.normalize(null, 'source');
         fsCallbacks.read(null, new Buffer(text));
-        utils.normalize.calls.reset();
         fs.readFile.calls.reset();
         callback.calls.reset();
         next();
     }
 
     beforeEach(function () {
+        spyOn(path, 'normalize').and.callThrough();
         fs = {
             readFile: function (fn, callback) {
                 fsCallbacks.read = callback;
@@ -31,9 +31,6 @@ describe("module main", function () {
         spyOn(fs, 'readFile').and.callThrough();
         spyOn(fs, 'writeFile').and.callThrough();
         utils = {
-            normalize: function (fn, callback) {
-                utilsCallbacks.normalize = callback;
-            },
             testDir: function (dir, callback) {
                 utilsCallbacks.testDir = callback;
             },
@@ -41,7 +38,6 @@ describe("module main", function () {
                 callback('err');
             }
         };
-        spyOn(utils, 'normalize').and.callThrough();
         spyOn(utils, 'testDir').and.callThrough();
         spyOn(utils, 'handleErr').and.callThrough();
         lib = {
@@ -66,7 +62,7 @@ describe("module main", function () {
         spyOn(lib, 'iconizeSvg').and.callThrough();
         toolbox = SandboxedModule.require('../../index.js', {
             requires: {
-                'async': async, 'cheerio': cheerio, 'fs': fs,
+                'async': async, 'cheerio': cheerio, 'fs': fs, 'path': path,
                 './lib/utils.js': utils,
                 './lib/inline.js': lib.inline,
                 './lib/stylesheet.js': lib.stylesheet,
@@ -91,11 +87,7 @@ describe("module main", function () {
 
         it("loads file to cheerio object", function () {
             toolbox.load('source', callback);
-            expect(utils.normalize.calls.argsFor(0)[0]).toBe('source');
-            expect(typeof utils.normalize.calls.argsFor(0)[1]).toBe('function');
-            expect(fs.readFile).not.toHaveBeenCalled();
             expect(cheerio.load).not.toHaveBeenCalled();
-            utilsCallbacks.normalize(null, 'source');
             expect(fs.readFile.calls.argsFor(0)[0]).toBe('source');
             expect(typeof fs.readFile.calls.argsFor(0)[1]).toBe('function');
             expect(cheerio.load).not.toHaveBeenCalled();
@@ -107,17 +99,17 @@ describe("module main", function () {
         });
 
         it("reacts on normalize errors", function () {
+            path.normalize.and.throwError('message');
             toolbox.load('source', callback);
-            utilsCallbacks.normalize('message');
-            expect(fs.readFile).not.toHaveBeenCalled();
             expect(cheerio.load).not.toHaveBeenCalled();
-            expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
+            expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
+            expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
+            expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
             expect(callback.calls.argsFor(0)[0]).toBeTruthy();
         });
 
         it("reacts on readFile errors", function () {
             toolbox.load('source', callback);
-            utilsCallbacks.normalize(null, 'source');
             fsCallbacks.read('message');
             expect(cheerio.load).not.toHaveBeenCalled();
             expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
@@ -126,7 +118,6 @@ describe("module main", function () {
 
         it("reacts on invalid content", function () {
             toolbox.load('source', callback);
-            utilsCallbacks.normalize(null, 'source');
             fsCallbacks.read(null, new Buffer('random'));
             expect(utils.handleErr).toHaveBeenCalledWith(
                 'No SVG content detected.',
@@ -203,8 +194,7 @@ describe("module main", function () {
                 libCallbacks.collect(null, ['rules']);
                 expect(callback).toHaveBeenCalled();
                 expect(callback.calls.argsFor(0)[0]).toBeFalsy();
-                toolbox.write(null, callback);
-                utilsCallbacks.normalize(null, 'fn');
+                toolbox.write('fn', callback);
                 var $ = cheerio.load(fs.writeFile.calls.argsFor(0)[1], { xmlMode: true });
                 expect($('svg style').length).toBe(1);
                 expect($('svg defs style').length).toBe(1);
@@ -221,8 +211,7 @@ describe("module main", function () {
                 libCallbacks.collect(null, ['rules1', 'rules2']);
                 expect(callback).toHaveBeenCalled();
                 expect(callback.calls.argsFor(0)[0]).toBeFalsy();
-                toolbox.write(null, callback);
-                utilsCallbacks.normalize(null, 'fn');
+                toolbox.write('fn', callback);
                 var $ = cheerio.load(fs.writeFile.calls.argsFor(0)[1], { xmlMode: true });
                 expect($('svg style').length).toBe(1);
                 expect($('svg defs style').length).toBe(1);
@@ -238,8 +227,7 @@ describe("module main", function () {
             loadContent(text, function () {
                 toolbox.stylize({ src: 'file.css' }, callback);
                 libCallbacks.collect(null, ['rules1', 'rules2']);
-                toolbox.write(null, callback);
-                utilsCallbacks.normalize(null, 'fn');
+                toolbox.write('fn', callback);
                 var $ = cheerio.load(fs.writeFile.calls.argsFor(0)[1], { xmlMode: true });
                 expect($('svg style').length).toBe(1);
                 expect($('svg defs:first-of-type > style:first-child').length).toBe(1);
@@ -344,7 +332,6 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.write(null, callback);
-            expect(utils.normalize).not.toHaveBeenCalled();
             expect(fs.writeFile).not.toHaveBeenCalled();
             expect(utils.handleErr).toHaveBeenCalledWith(
                 'No file loaded.',
@@ -355,10 +342,12 @@ describe("module main", function () {
 
         it("reacts on normalize errors", function (done) {
             loadContent(text, function () {
+                path.normalize.and.throwError('message');
                 toolbox.write('target', callback);
-                utilsCallbacks.normalize('message');
                 expect(fs.writeFile).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
+                expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
+                expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
+                expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
                 done();
            });
@@ -367,7 +356,6 @@ describe("module main", function () {
         it("reacts on writeFile errors", function (done) {
             loadContent(text, function () {
                 toolbox.write('target', callback);
-                utilsCallbacks.normalize(null, 'source');
                 fsCallbacks.write('message');
                 expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
@@ -377,12 +365,8 @@ describe("module main", function () {
 
         it("writes loaded content to file", function (done) {
             loadContent(text, function () {
-                toolbox.write('target1', callback);
-                expect(fs.writeFile).not.toHaveBeenCalled();
-                expect(utils.normalize.calls.argsFor(0)[0]).toBe('target1');
-                expect(typeof utils.normalize.calls.argsFor(0)[1]).toBe('function');
-                utilsCallbacks.normalize(null, 'target2');
-                expect(fs.writeFile.calls.argsFor(0)[0]).toBe('target2');
+                toolbox.write('target', callback);
+                expect(fs.writeFile.calls.argsFor(0)[0]).toBe('target');
                 expect(fs.writeFile.calls.argsFor(0)[1]).toBe(text);
                 expect(typeof fs.writeFile.calls.argsFor(0)[2]).toBe('function');
                 fsCallbacks.write(null);
@@ -396,7 +380,7 @@ describe("module main", function () {
             var text = '<?xml ?><svg><style/></svg>';
             loadContent(text, function () {
                 toolbox.write(null, callback);
-                expect(utils.normalize.calls.argsFor(0)[0]).toBe('source');
+                expect(path.normalize.calls.argsFor(0)[0]).toBe('source');
                 done();
            });
         });
@@ -414,7 +398,6 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.export(null, callback);
-            expect(utils.normalize).not.toHaveBeenCalled();
             expect(utils.testDir).not.toHaveBeenCalled();
             expect(lib.iconizePng).not.toHaveBeenCalled();
             expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -428,7 +411,6 @@ describe("module main", function () {
         it("reacts on missing options", function (done) {
             loadContent(text, function () {
                 toolbox.export(null, callback);
-                expect(utils.normalize).not.toHaveBeenCalled();
                 expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -444,8 +426,7 @@ describe("module main", function () {
         it("reacts on missing ids", function (done) {
             loadContent(text, function () {
                 toolbox.export({}, callback);
-                expect(utils.normalize).not.toHaveBeenCalled();
-                expect(utils.testDir).not.toHaveBeenCalled();
+                 expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
                 expect(utils.handleErr).toHaveBeenCalledWith(
@@ -467,12 +448,14 @@ describe("module main", function () {
 
         it("reacts on normalize errors", function (done) {
             loadContent(text, function () {
+                path.normalize.and.throwError('message');
                 toolbox.export({ ids: [] }, callback);
-                utilsCallbacks.normalize('message');
                 expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
+                expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
+                expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
+                expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
                 done();
             });
@@ -481,7 +464,6 @@ describe("module main", function () {
         it("reacts on directory errors", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [] }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir('message');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -494,7 +476,6 @@ describe("module main", function () {
         it("reacts on missing/false format", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [] }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -505,7 +486,6 @@ describe("module main", function () {
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
                 utils.handleErr.calls.reset();
                 toolbox.export({ ids: [], format: 'txt' }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -521,7 +501,6 @@ describe("module main", function () {
         it("calls iconizePng", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [], format: 'png' }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
                 expect(lib.iconizePng.calls.argsFor(0)[0]).toBe('source');
@@ -539,7 +518,6 @@ describe("module main", function () {
         it("reacts on iconizePng errors", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [], format: 'png' }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 libCallbacks.iconizePng('err');
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
@@ -551,7 +529,6 @@ describe("module main", function () {
             loadContent(text, function () {
                 var opt = { ids: [], format: 'svg', exportOptions: {} };
                 toolbox.export(opt, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -574,7 +551,6 @@ describe("module main", function () {
             loadContent(text, function () {
                 var opt = { ids: [], format: 'svg', exportOptions: {} };
                 toolbox.export(opt, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(toolbox.inline).not.toHaveBeenCalled();
@@ -592,7 +568,6 @@ describe("module main", function () {
         it("reacts on inline errors", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [], format: 'svg' }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 inlineCallback('err');
                 expect(callback.calls.argsFor(0)[0]).toBeTruthy();
@@ -603,7 +578,6 @@ describe("module main", function () {
         it("reacts on iconizeSvg errors", function (done) {
             loadContent(text, function () {
                 toolbox.export({ ids: [], format: 'svg' }, callback);
-                utilsCallbacks.normalize(null, 'dir/');
                 utilsCallbacks.testDir(null, 'dir/');
                 inlineCallback(null);
                 libCallbacks.iconizeSvg('err');

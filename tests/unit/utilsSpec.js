@@ -47,21 +47,6 @@ describe("module utils", function () {
         });
     });
 
-    describe("function normalize", function () {
-        it("wraps path.normalize", function () {
-            path.normalize.and.returnValue('normal');
-            utils.normalize('name', callback);
-            expect(path.normalize).toHaveBeenCalledWith('name');
-            expect(callback).toHaveBeenCalledWith(null, 'normal');
-        });
- 
-        it("returns error to callback", function () {
-            path.normalize.and.throwError('message');
-            utils.normalize('name', callback);
-            expect(callback).toHaveBeenCalledWith('message');
-        });
-    });
-
     describe("function testDir", function () {
         it("calls child process with supplied directory name", function () {
             utils.testDir('direc/tory', callback);

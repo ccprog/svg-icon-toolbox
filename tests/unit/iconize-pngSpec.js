@@ -3,11 +3,12 @@
 var SandboxedModule = require('sandboxed-module');
 var isr = require('../lib/istanbul-reporter.js');
 var async = require('async');
+var path = require('path');
 
 describe("module iconize-png", function () {
     var stdin, utils, spawn, iconize, callback;
     var sourceFn, exportOptions;
-    var spawnLineFn, normalizeCallbacks = {};
+    var spawnLineFn;
 
     function loadIconize (ids, dir, suffix, postProcess) {
         iconize(sourceFn, {
@@ -20,23 +21,21 @@ describe("module iconize-png", function () {
     }
 
     beforeEach(function () {
+        spyOn(path, 'normalize').and.callThrough();
         stdin = {
             write: jasmine.createSpy('write')
         };
         utils = {
-            normalize: function (fn, callback) {
-                normalizeCallbacks[fn] = callback;
-            },
             handleErr: jasmine.createSpy('handleErr')
         };
-        spyOn(utils, 'normalize').and.callThrough();
         spawn = jasmine.createSpy('spawn')
                 .and.callFake(function (cmd, lineFn) {
             spawnLineFn = lineFn;
             return stdin;
         });
         iconize = SandboxedModule.require('../../lib/iconize-png.js', {
-            requires: { 'async': async, './utils': utils, './spawn': spawn },
+            requires: { 'async': async, 'path': path,
+                        './utils': utils, './spawn': spawn },
             globals: { 'console': { log: () => {} } },
             sourceTransformers: {
                 istanbul: isr.transformer
@@ -57,22 +56,22 @@ describe("module iconize-png", function () {
     });
 
     it("constructs the export command", function () {
-        loadIconize(['object1', 'object2']);
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1.png');
-        normalizeCallbacks['./object1.png'](null, './obj1');
-        var command = stdin.write.calls.argsFor(0)[0];
-        expect(command).toContain('--export-id="object1" ');
-        expect(command).toContain('--export-id-only ');
-        expect(command).toContain('--export-png="./obj1" ');
-        expect(command).toContain('source\n');
+        var objects = ['object1', 'object2'];
+        loadIconize(objects);
+        var commands = [
+            stdin.write.calls.argsFor(0)[0],
+            stdin.write.calls.argsFor(1)[0]
+        ];
+        objects.forEach(function (obj) {
+            var command = commands.filter(function (cmd) {
+                return cmd.indexOf(obj) >= 0;
+            })[0];
+            expect(command).toContain(`--export-id="${obj}" `);
+            expect(command).toContain('--export-id-only ');
+            expect(command).toContain(`--export-png="${obj}.png" `);
+            expect(command).toContain('source\n');
+        });
         expect(stdin.write.calls.argsFor(0)[1]).toBe('utf8');
-        expect(utils.normalize.calls.argsFor(1)[0]).toBe('./object2.png');
-        normalizeCallbacks['./object2.png'](null, './obj2');
-        command = stdin.write.calls.argsFor(1)[0];
-        expect(command).toContain('--export-id="object2" ');
-        expect(command).toContain('--export-id-only ');
-        expect(command).toContain('--export-png="./obj2" ');
-        expect(command).toContain('source\n');
         expect(stdin.write.calls.argsFor(1)[1]).toBe('utf8');
         expect(stdin.write).toHaveBeenCalledWith('quit\n');
         expect(stdin.write.calls.count()).toBe(3);
@@ -87,11 +86,12 @@ describe("module iconize-png", function () {
     ];
 
     it("reacts on normalize errors", function () {
+        path.normalize.and.throwError('message');
         loadIconize(['object1']);
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1.png');
-        normalizeCallbacks['./object1.png']('message');
         expect(stdin.write).toHaveBeenCalledWith('quit\n');
-        expect(utils.handleErr).toHaveBeenCalledWith('message','file I/O', callback);
+        expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
     });
 
     it("understands exportOptions", function () {
@@ -107,11 +107,10 @@ describe("module iconize-png", function () {
             'random': true
         };
         loadIconize(['object1']);
-        normalizeCallbacks['./object1.png'](null, './obj1');
         var command = stdin.write.calls.argsFor(0)[0];
         expect(command).toContain('--export-id="object1" ');
         expect(command).toContain('--export-id-only ');
-        expect(command).toContain('--export-png="./obj1" ');
+        expect(command).toContain('--export-png="object1.png" ');
         for (let prop in exportOptions) {
             var part = ' --export-' + prop;
             if (typeof exportOptions[prop] !== 'boolean') {
@@ -127,9 +126,9 @@ describe("module iconize-png", function () {
 
     it("adds directories and suffixes", function () {
         loadIconize(['object1'], null, '-suffix');
-        expect(utils.normalize.calls.argsFor(0)[0]).toBe('./object1-suffix.png');
+        expect(stdin.write.calls.argsFor(0)[0]).toContain('object1-suffix.png');
         loadIconize(['object1'], 'dir/');
-        expect(utils.normalize.calls.argsFor(1)[0]).toBe('dir//object1.png');
+        expect(stdin.write.calls.argsFor(2)[0]).toContain('dir/object1.png');
     });
 
     it("pipes file to postProcess cli from inkscape stdout", function () {
