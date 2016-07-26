@@ -12,7 +12,8 @@
     "css": "^2.2.1",
     "node-sass": "^3.8.0",
     "pretty-data": "^0.40.0",
-    "specificity": "^0.2.1"
+    "specificity": "^0.2.1",
+    "which": "^1.2.10"
   },
   "devDependencies": {
     "grunt-contrib-jshint": "^1.0.0",

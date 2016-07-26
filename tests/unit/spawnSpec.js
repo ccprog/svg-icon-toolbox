@@ -1,5 +1,6 @@
 "use strict";
 
+var async = require('async');
 var SandboxedModule = require('sandboxed-module');
 var isr = require('../lib/istanbul-reporter.js');
 
@@ -13,7 +14,8 @@ describe("module spawn", function () {
         return self;
     }
 
-    var child, cp, console, utils, spawn, callback;
+    var child, cp, which, console, utils, spawn, callback;
+    var whichCallback;
 
     beforeEach(function () {
         cp = {
@@ -26,6 +28,9 @@ describe("module spawn", function () {
             }
         };
         spyOn(cp, 'spawn').and.callThrough();
+        which = jasmine.createSpy('which').and.callFake(function (cmd, callback) {
+            whichCallback = callback;
+        });
         console = {
             log: jasmine.createSpy('log')
         };
@@ -33,7 +38,7 @@ describe("module spawn", function () {
             handleErr: jasmine.createSpy('handleErr')  
         };
         spawn = SandboxedModule.require('../../lib/spawn.js', {
-            requires: { 'child_process': cp, './utils.js': utils },
+            requires: { 'child_process': cp, 'which': which, './utils.js': utils },
             globals: { 'console': console },
             sourceTransformers: {
                 istanbul: isr.transformer
@@ -43,80 +48,113 @@ describe("module spawn", function () {
         callback = jasmine.createSpy('callback');
     });
 
-    it("spawns a command and tracks its events", function () {
-        var stream = spawn('command arg1 arg2', null, false, callback);
-        expect(cp.spawn).toHaveBeenCalledWith('command', ['arg1', 'arg2']);
-        expect(child.stdout.on.calls.argsFor(0)[0]).toBe('data');
-        expect(typeof child.stdout.on.calls.argsFor(0)[1]).toBe('function');
-        expect(child.on.calls.argsFor(0)[0]).toBe('exit');
-        expect(typeof child.on.calls.argsFor(0)[1]).toBe('function');
-        expect(child.stderr.on.calls.argsFor(0)[0]).toBe('data');
-        expect(typeof child.stderr.on.calls.argsFor(0)[1]).toBe('function');
-        expect(stream).toBe('stdin');
-    });
-
-    it("hands stdout line by line to console", function () {
-        spawn('command', null, false, callback);
-        [
-            'first ',
-            'line\nsecond line\n',
-            'third ',
-            'line'
-        ].forEach(function (item) {
-            child.stdout.emit('data', new Buffer(item));
+    it("spawns a command and tracks its events", function (done) {
+        spawn('command arg1 arg2', null, false, callback, function (err, stream) {
+            expect(cp.spawn).toHaveBeenCalledWith('command', ['arg1', 'arg2']);
+            expect(child.stdout.on.calls.argsFor(0)[0]).toBe('data');
+            expect(typeof child.stdout.on.calls.argsFor(0)[1]).toBe('function');
+            expect(child.on.calls.argsFor(0)[0]).toBe('exit');
+            expect(typeof child.on.calls.argsFor(0)[1]).toBe('function');
+            expect(child.stderr.on.calls.argsFor(0)[0]).toBe('data');
+            expect(typeof child.stderr.on.calls.argsFor(0)[1]).toBe('function');
+            expect(stream).toBe('stdin');
+            done();
         });
-        child.emit('exit', 0);
-        expect(console.log.calls.count()).toBe(3);
-        expect(console.log.calls.argsFor(0)[0]).toBe('first line');
-        expect(console.log.calls.argsFor(1)[0]).toBe('second line');
-        expect(console.log.calls.argsFor(2)[0]).toBe('third line');
-        expect(callback).toHaveBeenCalledWith(null, 0);
+        expect(which.calls.argsFor(0)[0]).toBe('command');
+        expect(typeof which.calls.argsFor(0)[1]).toBe('function');
+        whichCallback(null, 'command');
     });
 
-    it("calls a supplied lineFn per line", function () {
+    it("reacts on which errors", function () {
+        var spawnCallback = jasmine.createSpy('spawnCallback');
+        spawn('command arg1 arg2', null, false, callback, spawnCallback);
+        whichCallback('message');
+        expect(utils.handleErr).toHaveBeenCalledWith('message', 'System', callback);
+        expect(spawnCallback).not.toHaveBeenCalled();
+    });
+
+    it("hands stdout line by line to console", function (done) {
+        spawn('command', null, false, callback, function () {
+            [
+                'first ',
+                'line\nsecond line\n',
+                'third ',
+                'line'
+            ].forEach(function (item) {
+                child.stdout.emit('data', new Buffer(item));
+            });
+            child.emit('exit', 0);
+            expect(console.log.calls.count()).toBe(3);
+            expect(console.log.calls.argsFor(0)[0]).toBe('first line');
+            expect(console.log.calls.argsFor(1)[0]).toBe('second line');
+            expect(console.log.calls.argsFor(2)[0]).toBe('third line');
+            expect(callback).toHaveBeenCalledWith(null, 0);
+            done();
+        });
+        whichCallback(null, 'command');
+    });
+
+    it("calls a supplied lineFn per line", function (done) {
         var lineFn = jasmine.createSpy('lineFn');
-        spawn('command', lineFn, false, callback);
-        [
-            'first ',
-            'line\nsecond line'
-        ].forEach(function (item) {
-            child.stdout.emit('data', new Buffer(item));
+        spawn('command', lineFn, false, callback, function () {
+            [
+                'first ',
+                'line\nsecond line'
+            ].forEach(function (item) {
+                child.stdout.emit('data', new Buffer(item));
+            });
+            child.emit('exit', 0);
+            expect(console.log).not.toHaveBeenCalled();
+            expect(lineFn.calls.count()).toBe(2);
+            expect(lineFn.calls.argsFor(0)[0]).toBe('first line');
+            expect(lineFn.calls.argsFor(1)[0]).toBe('second line');
+            expect(callback).toHaveBeenCalledWith(null, 0);
+            done();
         });
-        child.emit('exit', 0);
-        expect(console.log).not.toHaveBeenCalled();
-        expect(lineFn.calls.count()).toBe(2);
-        expect(lineFn.calls.argsFor(0)[0]).toBe('first line');
-        expect(lineFn.calls.argsFor(1)[0]).toBe('second line');
-        expect(callback).toHaveBeenCalledWith(null, 0);
+        whichCallback(null, 'command');
     });
 
-    it("delegates error handling", function () {
-        spawn('command', null, false, callback);
-        child.stderr.emit('data', new Buffer('message'));
-        expect(utils.handleErr).toHaveBeenCalledWith('message', 'command', callback);
-        expect(callback).not.toHaveBeenCalled();
+    it("delegates error handling", function (done) {
+        spawn('command', null, false, callback, function () {
+            child.stderr.emit('data', new Buffer('message'));
+            expect(utils.handleErr).toHaveBeenCalledWith('message', 'command', callback);
+            expect(callback).not.toHaveBeenCalled();
+            done();
+        });
+        whichCallback(null, 'command');
     });
 
-    it("calls the callback of a spawn with delay", function () {
-        var callback1 = callback;
-        spawn('command', null, true, callback1);
-        var child1 = child;
-        var callback2 = jasmine.createSpy('callback2');
-        spawn('command', null, false, callback2);
-        var child2 = child;
-        child1.emit('exit', 1);
-        expect(callback1).not.toHaveBeenCalled();
-        child2.emit('exit', 0);
-        expect(callback2).not.toHaveBeenCalled();
-        expect(callback1).toHaveBeenCalledWith(null, 0);
-        var callback3 = jasmine.createSpy('callback3');
-        spawn('command', null, false, callback3);
-        var child3 = child;
-        var callback4 = jasmine.createSpy('callback4');
-        spawn('command', null, false, callback4);
-        var child4 = child;
-        child4.emit('exit', 0);
-        expect(callback4).toHaveBeenCalledWith(null, 0);
-        expect(callback3).not.toHaveBeenCalled();
+    it("calls the callback of a spawn with delay", function (done) {
+        var callbacks = [
+            callback,
+            jasmine.createSpy('callback1'),
+            jasmine.createSpy('callback2'),
+            jasmine.createSpy('callback3')
+        ];
+        var childs = [];
+        async.eachOfSeries(callbacks, function (cb, idx, next) {
+            spawn('command', null, idx === 0, cb, function () {
+                childs[idx] = child;
+                switch(idx) {
+                case 1:
+                    childs[0].emit('exit', 1);
+                    expect(callbacks[0]).not.toHaveBeenCalled();
+                    childs[1].emit('exit', 0);
+                    expect(callbacks[1]).not.toHaveBeenCalled();
+                    expect(callbacks[0]).toHaveBeenCalledWith(null, 0);
+                    break;
+                case 3:
+                    childs[3].emit('exit', 0);
+                    expect(callbacks[3]).toHaveBeenCalledWith(null, 0);
+                    expect(callbacks[2]).not.toHaveBeenCalled();
+                    done();
+                    break;
+                }
+            });
+            whichCallback(null, 'command');
+            next();
+        }, function (err) {
+            if (err) throw err;
+        });
     });
 });

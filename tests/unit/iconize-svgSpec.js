@@ -9,9 +9,10 @@ var path = require('path');
 var prd = require('pretty-data');
 
 describe("module iconize-svg", function () {
-    var stdin, utils, spawn, iconize, callback;
+    var utils, spawn, iconize, callback;
     var sourceFn, source, $xml, exportOptions;
-    var spawnCallback, writeCallbacks, spawnLineFn;
+    var spawnCallback, cmdCallback, writeCallbacks, spawnLineFn;
+    var spawnSuccess;
 
     function loadIconize (ids, dimensions, dir, suffix, postProcess) {
         $xml = cheerio.load(source, { xmlMode: true });
@@ -22,9 +23,10 @@ describe("module iconize-svg", function () {
             postProcess: postProcess,
             exportOptions: exportOptions
         }, callback);
+        spawnCallback(spawnSuccess);
         if (dimensions) {
             dimensions.forEach(spawnLineFn);
-            spawnCallback(null);
+            cmdCallback(null);
         }
     }
 
@@ -34,9 +36,6 @@ describe("module iconize-svg", function () {
         spyOn(fs, 'writeFile').and.callFake(function(fn, text, callback) {
             writeCallbacks[fn] = callback;
         });
-        stdin = {
-            write: jasmine.createSpy('write')
-        };
         utils = {
             handleErr: function (err, cmd, callback) {
                 callback('err');
@@ -45,11 +44,12 @@ describe("module iconize-svg", function () {
                                 .and.returnValue([])
         };
         spyOn(utils, 'handleErr').and.callThrough();
+        spawnSuccess = null;
         spawn = jasmine.createSpy('spawn')
-                .and.callFake(function (cmd, lineFn, delay, callback) {
+                .and.callFake(function (cmd, lineFn, delay, cmdCb, spawnCb) {
             spawnLineFn = lineFn;
-            spawnCallback = callback;
-            return stdin;
+            cmdCallback = cmdCb;
+            spawnCallback = spawnCb;
         });
         iconize = SandboxedModule.require('../../lib/iconize-svg.js', {
             requires: { 'async': async, 'path': path, 'pretty-data': prd, 'fs': fs,
@@ -65,20 +65,26 @@ describe("module iconize-svg", function () {
         exportOptions = {};
     });
 
-    it("spawns the inkscape shell", function () {
+    it("spawns inkscape command", function () {
         sourceFn = 'source';
         loadIconize([]);
         expect(spawn.calls.argsFor(0)[0]).toBe('inkscape -S source');
         expect(typeof spawn.calls.argsFor(0)[1]).toBe('function');
         expect(spawn.calls.argsFor(0)[2]).toBe(false);
         expect(typeof spawn.calls.argsFor(0)[3]).toBe('function');
-        spawnCallback(null);
+        cmdCallback(null);
         expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("reacts on spawn errors", function () {
+        spawnSuccess = 'err';
         loadIconize([]);
-        spawnCallback('err');
+        expect(callback).toHaveBeenCalledWith('err');
+    });
+
+    it("reacts on command errors", function () {
+        loadIconize([]);
+        cmdCallback('err');
         expect(callback).toHaveBeenCalledWith('err');
     });
 
@@ -150,6 +156,7 @@ describe("module iconize-svg", function () {
         source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
                  'transform="transform1" />';
         utils.computeTransform.and.returnValue(['transform2']);
+        spawnCallback(null);
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
@@ -257,7 +264,7 @@ describe("module iconize-svg", function () {
                 ['object1,5,5,10,20', 'object2,20,5,30,30']
             );
             var objText1, objText2;
-            if (fs.writeFile.calls.argsFor(0)[0] = 'object1.svg') {
+            if (fs.writeFile.calls.argsFor(0)[0] === 'object1.svg') {
                 objText1 = fs.writeFile.calls.argsFor(0)[1];
                 objText2 = fs.writeFile.calls.argsFor(1)[1];
             } else {
