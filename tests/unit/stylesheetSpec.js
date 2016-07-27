@@ -36,7 +36,7 @@ describe("module stylesheet, function collect", function () {
         console = { log: () => {} };
         fileCallbacks = {};
         utils = {
-            handleErr: jasmine.createSpy('handleErr')  
+            raiseErr: jasmine.createSpy('raiseErr')  
         };
         stylesheet = SandboxedModule.require('../../lib/stylesheet.js', {
             requires: { 'async': async, 'css': css, 'node-sass': sass, 'fs': fs,
@@ -65,10 +65,10 @@ describe("module stylesheet, function collect", function () {
     it("reacts on normalize errors", function () {
         path.normalize.and.throwError('message');
         loadCollect('./file');
-        expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
-        expect(utils.handleErr.calls.argsFor(0)[2]).not.toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).not.toBe(callback);
     });
 
     it("reads css file", function () {
@@ -97,10 +97,10 @@ describe("module stylesheet, function collect", function () {
         expect(fs.readFile.calls.argsFor(0)[0]).toBe('file.css');
         css.parse.and.throwError('message');
         fileCallbacks['file.css'](null, 'content');
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('CSS file file.css');
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
-        expect(utils.handleErr.calls.argsFor(0)[2]).not.toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('CSS file file.css');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).not.toBe(callback);
     });
 
     it("reads sass file", function () {
@@ -160,19 +160,19 @@ describe("module stylesheet, function collect", function () {
         expect(fs.readFile.calls.argsFor(0)[0]).toBe('file.scss');
         fileCallbacks['file.scss'](null, 'content');
         sassCallback({ line: 3, column: 4, message: 'message' });
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('SCSS file file.scss, line 3, column 4');
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
-        expect(utils.handleErr.calls.argsFor(0)[2]).not.toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('SCSS file file.scss, line 3, column 4');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).not.toBe(callback);
     });
 
     it("reacts on unrecognized file extension", function () {
         loadCollect('file.ext');
         expect(fs.readFile.calls.argsFor(0)[0]).toBe('file.ext');
         fileCallbacks['file.ext'](null, 'content');
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('no recognized file format');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe(null);
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
-        expect(utils.handleErr.calls.argsFor(0)[2]).not.toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('no recognized file format');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe(null);
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).not.toBe(callback);
     });
 });

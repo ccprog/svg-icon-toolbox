@@ -18,7 +18,7 @@ describe("module inline", function () {
     beforeEach(function () {
         spyOn(css, 'parse').and.callThrough();
         utils = {
-            handleErr: jasmine.createSpy('handleErr')  
+            raiseErr: jasmine.createSpy('raiseErr')  
         };
         console = { log: () => {} };
         inline = SandboxedModule.require('../../lib/inline.js', {
@@ -51,7 +51,9 @@ describe("module inline", function () {
     it("reacts on faulty stylesheets", function () {
         css.parse.and.throwError('message');
         loadInline([]);
-        expect(utils.handleErr).toHaveBeenCalledWith('message', 'CSS content', callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('CSS content');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(callback);
         expect(callback).not.toHaveBeenCalled();
     });
 

@@ -28,7 +28,7 @@ describe("module iconize-png", function () {
             write: jasmine.createSpy('write')
         };
         utils = {
-            handleErr: jasmine.createSpy('handleErr')
+            raiseErr: jasmine.createSpy('raiseErr')
         };
         spawnSuccess = null;
         spawn = jasmine.createSpy('spawn')
@@ -62,9 +62,9 @@ describe("module iconize-png", function () {
     it("reacts on spawn errors", function () {
         spawnSuccess = 'message';
         loadIconize([]);
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(callback);
     });
 
     it("constructs the export command", function () {
@@ -93,9 +93,9 @@ describe("module iconize-png", function () {
         path.normalize.and.throwError('message');
         loadIconize(['object1']);
         expect(stdin.write).toHaveBeenCalledWith('quit\n');
-        expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
+        expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(callback);
     });
 
     it("understands exportOptions", function () {
@@ -147,7 +147,7 @@ describe("module iconize-png", function () {
         loadIconize([], null, null, 'command');
         outLines.forEach(spawnLineFn);
         expect(spawn.calls.count()).toBe(2);
-        expect(spawn.calls.argsFor(1)[0]).toBe('command "object.png"');
+        expect(spawn.calls.argsFor(1)[0]).toBe('command object.png');
         expect(spawn.calls.argsFor(1)[1]).toBe(null);
         expect(spawn.calls.argsFor(1)[2]).toBe(false);
         expect(spawn.calls.argsFor(1)[3]).toBe(callback);

@@ -27,6 +27,7 @@ var isOpen = false;
  * @return void
  */
 exports.load = function (fn, callback) {
+    var errorPrinter = utils.errorPrinter(callback);
     async.waterfall([
         async.apply(normalize, fn),
         async.asyncify((fn) => {
@@ -39,8 +40,7 @@ exports.load = function (fn, callback) {
                 xmlMode: true
             });
             if (!$('svg').length) {
-                // TODO: double call!
-                return utils.handleErr('No SVG content detected.', null, callback);
+                return utils.raiseErr('No SVG content detected.', null, next);
             }
             sourceFn = fn;
             isOpen = true;
@@ -48,7 +48,7 @@ exports.load = function (fn, callback) {
             return next(null);
         }
     ], (err) => {
-        if (err) return utils.handleErr(err, 'file I/O', callback);
+        if (err) return utils.raiseErr(err, 'file I/O', errorPrinter);
         return callback(null);
     });
 };
@@ -65,16 +65,17 @@ exports.load = function (fn, callback) {
  * @return void
  */
 exports.stylize = function (opt, callback) {
-    if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
+    var errorPrinter = utils.errorPrinter(callback);
+    if (!isOpen) return utils.raiseErr('No file loaded.', null, errorPrinter);
     if (!opt) {
-        return utils.handleErr('No valid options.', null, callback);
+        return utils.raiseErr('No valid options.', null, errorPrinter);
     } else if (!Array.isArray(opt.src) && typeof opt.src !== 'string') {
-        return utils.handleErr('No stylesheet supplied.', null, callback);
+        return utils.raiseErr('No stylesheet supplied.', null, errorPrinter);
     }
 
     // collect external stylesheet
     stylesheet.collect(opt, (err, ruleset) => {
-        if (err) return callback(err);
+        if (err) return errorPrinter(err);
         // insert all Css texts as one stylesheet
         $('style').remove();
 
@@ -109,12 +110,13 @@ exports.stylize = function (opt, callback) {
  * @return void
  */
 exports.inline = function (opt, callback) {
-    if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
+    var errorPrinter = utils.errorPrinter(callback);
+    if (!isOpen) return utils.raiseErr('No file loaded.', null, errorPrinter);
     if (!opt) opt = {};
 
     // collect external stylesheet
     stylesheet.collect(opt, (err, ruleset) => {
-        if (err) return callback(err);
+        if (err) return errorPrinter(err);
         //collect internal stylesheets
         $('style').each((i, el) => {
              // make sure CDATA is stripped
@@ -124,7 +126,7 @@ exports.inline = function (opt, callback) {
         });
         console.log(`Found ${ruleset.length} stylesheets.` );
 
-        return inline($, ruleset, callback);
+        return inline($, ruleset, errorPrinter);
     });
 };
 
@@ -138,7 +140,8 @@ exports.inline = function (opt, callback) {
  * @return void
  */
 exports.write = function (targetFn, callback) {
-    if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
+    var errorPrinter = utils.errorPrinter(callback);
+    if (!isOpen) return utils.raiseErr('No file loaded.', null, errorPrinter);
 
     async.waterfall([
         async.apply(normalize, targetFn || sourceFn),
@@ -147,7 +150,7 @@ exports.write = function (targetFn, callback) {
             fs.writeFile(targetFn, $.xml(), next);
         }
     ], (err) => {
-        if (err) return utils.handleErr(err, 'file I/O', callback);
+        if (err) return utils.raiseErr(err, 'file I/O', errorPrinter);
         console.log('OK');
         return callback(null);
     });
@@ -178,11 +181,12 @@ exports.write = function (targetFn, callback) {
  * @return void
  */
 exports.export = function (opt, callback) {
-    if (!isOpen) return utils.handleErr('No file loaded.', null, callback);
+    var errorPrinter = utils.errorPrinter(callback);
+    if (!isOpen) return utils.raiseErr('No file loaded.', null, errorPrinter);
     if (!opt) {
-        return utils.handleErr('No valid options.', null, callback);
+        return utils.raiseErr('No valid options.', null, errorPrinter);
     } else if (!Array.isArray(opt.ids)) {
-        return utils.handleErr('No valid id list.', null, callback);
+        return utils.raiseErr('No valid id list.', null, errorPrinter);
     }
     if (!opt.exportOptions) opt.exportOptions = {};
 
@@ -190,20 +194,20 @@ exports.export = function (opt, callback) {
         async.apply(normalize, opt.dir || '.'),
         async.apply(utils.testDir)
     ], (err) => {
-        if (err) return utils.handleErr(err, 'file I/O', callback);
+        if (err) return utils.raiseErr(err, 'file I/O', errorPrinter);
         switch (opt.format) {
         case 'png':
-            iconizePng(sourceFn, opt, callback);
+            iconizePng(sourceFn, opt, errorPrinter);
             break;
         case 'svg':
             let tasks = [async.apply(iconizeSvg, sourceFn, $, opt)];
             if ($('style').length) {
                 tasks.unshift(async.apply(exports.inline, {}));
             }
-            async.series(tasks, callback);
+            async.series(tasks, errorPrinter);
             break;
         default:
-            return utils.handleErr('No valid export format.', null, callback);
+            return utils.raiseErr('No valid export format.', null, errorPrinter);
         }
     });
 };

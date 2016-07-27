@@ -37,13 +37,13 @@ describe("module iconize-svg", function () {
             writeCallbacks[fn] = callback;
         });
         utils = {
-            handleErr: function (err, cmd, callback) {
+            raiseErr: function (err, cmd, callback) {
                 callback('err');
             },
             computeTransform: jasmine.createSpy('computeTransform')
                                 .and.returnValue([])
         };
-        spyOn(utils, 'handleErr').and.callThrough();
+        spyOn(utils, 'raiseErr').and.callThrough();
         spawnSuccess = null;
         spawn = jasmine.createSpy('spawn')
                 .and.callFake(function (cmd, lineFn, delay, cmdCb, spawnCb) {
@@ -114,9 +114,9 @@ describe("module iconize-svg", function () {
             ['object1'],
             ['object1,5,5,10,20']
         );
-        expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
         expect(callback).toHaveBeenCalledWith('err');
     });
 
@@ -125,9 +125,9 @@ describe("module iconize-svg", function () {
             ['object1'],
             ['object2,20,5,30,30']
         );
-        expect(utils.handleErr.calls.argsFor(0)[0]).toBe('object object1 not found in loaded source.');
-        expect(utils.handleErr.calls.argsFor(0)[1]).toBe('SVG');
-        expect(typeof utils.handleErr.calls.argsFor(0)[2]).toBe('function');
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('object object1 not found in loaded source.');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('SVG');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
         expect(callback).toHaveBeenCalledWith('err');
     });
 

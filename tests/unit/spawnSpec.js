@@ -35,7 +35,7 @@ describe("module spawn", function () {
             log: jasmine.createSpy('log')
         };
         utils = {
-            handleErr: jasmine.createSpy('handleErr')  
+            raiseErr: jasmine.createSpy('raiseErr')  
         };
         spawn = SandboxedModule.require('../../lib/spawn.js', {
             requires: { 'child_process': cp, 'which': which, './utils.js': utils },
@@ -69,7 +69,7 @@ describe("module spawn", function () {
         var spawnCallback = jasmine.createSpy('spawnCallback');
         spawn('command arg1 arg2', null, false, callback, spawnCallback);
         whichCallback('message');
-        expect(utils.handleErr).toHaveBeenCalledWith('message', 'System', callback);
+        expect(utils.raiseErr).toHaveBeenCalledWith('message', 'System', callback);
         expect(spawnCallback).not.toHaveBeenCalled();
     });
 
@@ -117,7 +117,7 @@ describe("module spawn", function () {
     it("delegates error handling", function (done) {
         spawn('command', null, false, callback, function () {
             child.stderr.emit('data', new Buffer('message'));
-            expect(utils.handleErr).toHaveBeenCalledWith('message', 'command', callback);
+            expect(utils.raiseErr).toHaveBeenCalledWith('message', 'command', callback);
             expect(callback).not.toHaveBeenCalled();
             done();
         });

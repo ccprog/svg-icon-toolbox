@@ -26,24 +26,61 @@ describe("module utils", function () {
         callback = jasmine.createSpy('callback');
     });
 
-    describe("function handleErr", function () {
+    describe("function raiseErr", function () {
+        it("produces a well-formed error", function (done) {
+            utils.raiseErr('message', 'command', function (err) {
+                expect(err instanceof Error).toBe(true);
+                expect(err.toolbox).toBe('command');
+                expect(err.message).toBe('message');
+                done();
+            });
+        });
+
+        it("enhances existing Errors", function (done) {
+            utils.raiseErr(new Error('message'), 'command', function (err) {
+                expect(err instanceof Error).toBe(true);
+                expect(err.toolbox).toBe('command');
+                expect(err.message).toBe('message');
+                done();
+            });
+        });
+
+        it("does not overwrite previous header lines", function (done) {
+            var err = new Error('message');
+            err.toolbox = 'command1';
+            utils.raiseErr(err, 'command2', function (err) {
+                expect(err instanceof Error).toBe(true);
+                expect(err.toolbox).toBe('command1');
+                expect(err.message).toBe('message');
+                done();
+            });
+        });
+    });
+
+    describe("function errorPrinter", function () {
         it("prints errors to console", function () {
-            var answ = utils.handleErr('message', 'command', callback);
-            expect(console.error).toHaveBeenCalledWith('Error in command:\n  %s', 'message');
+            var callback = jasmine.createSpy('callback');
+            var err = new Error('message');
+            err.toolbox = 'command';
+            utils.errorPrinter(callback)(err);
+            expect(console.error).toHaveBeenCalledWith('Error in command:\n  message');
             expect(callback.calls.argsFor(0)[0]).toBeTruthy();
-            expect(answ).toBeUndefined();
         });
 
         it("exchanges module name for missing command", function () {
-            utils.handleErr('message', null, callback);
-            expect(console.error).toHaveBeenCalledWith('Error in svg-icon-toolbox:\n  %s', 'message');
+            var callback = jasmine.createSpy('callback');
+            var err = new Error('message');
+            err.toolbox = null;
+            utils.errorPrinter(callback)(err);
+            expect(console.error).toHaveBeenCalledWith('Error in svg-icon-toolbox:\n  message');
             expect(callback.calls.argsFor(0)[0]).toBeTruthy();
         });
 
-        it("returns directly without callback", function () {
-            var answ = utils.handleErr('message', 'command');
-            expect(callback).not.toHaveBeenCalled();
-            expect(answ).toBeTruthy();
+        it("bypasses without error", function () {
+            var callback = jasmine.createSpy('callback');
+            utils.errorPrinter(callback)();
+            expect(console.error).not.toHaveBeenCalled();
+            expect(callback.calls.argsFor(0)[0]).toBeFalsy();
         });
     });
 

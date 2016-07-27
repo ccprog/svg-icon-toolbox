@@ -7,7 +7,7 @@ var cheerio = require('cheerio');
 var path = require('path');
 
 describe("module main", function () {
-    var fs, utils, toolbox, callback;
+    var fs, utils, toolbox, callback, errorPrinter;
     var fsCallbacks = {}, lib = {}, libCallbacks = {}, utilsCallbacks = {};
 
     function loadContent(text, next) {
@@ -30,16 +30,21 @@ describe("module main", function () {
         };
         spyOn(fs, 'readFile').and.callThrough();
         spyOn(fs, 'writeFile').and.callThrough();
+        errorPrinter = jasmine.createSpy('errorPrinter');
         utils = {
             testDir: function (dir, callback) {
                 utilsCallbacks.testDir = callback;
             },
-            handleErr: function (err, cmd, callback) {
+            raiseErr: function (err, cmd, callback) {
                 callback('err');
+            },
+            errorPrinter: function () {
+                return errorPrinter;
             }
         };
         spyOn(utils, 'testDir').and.callThrough();
-        spyOn(utils, 'handleErr').and.callThrough();
+        spyOn(utils, 'raiseErr').and.callThrough();
+        spyOn(utils, 'errorPrinter').and.callThrough();
         lib = {
             stylesheet: {
                 collect: function (opt, callback) {
@@ -101,29 +106,32 @@ describe("module main", function () {
         it("reacts on normalize errors", function () {
             path.normalize.and.throwError('message');
             toolbox.load('source', callback);
+            expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
             expect(cheerio.load).not.toHaveBeenCalled();
-            expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-            expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-            expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+            expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+            expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(errorPrinter);
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on readFile errors", function () {
             toolbox.load('source', callback);
             fsCallbacks.read('message');
             expect(cheerio.load).not.toHaveBeenCalled();
-            expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(utils.raiseErr).toHaveBeenCalledWith(
+                'message', 'file I/O', errorPrinter
+            );
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on invalid content", function () {
             toolbox.load('source', callback);
             fsCallbacks.read(null, new Buffer('random'));
-            expect(utils.handleErr).toHaveBeenCalledWith(
-                'No SVG content detected.',
-                null, callback
-            );
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('No SVG content detected.');
+            expect(utils.raiseErr.calls.argsFor(0)[1]).toBe(null);
+            expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+            expect(utils.raiseErr.calls.argsFor(1)[2]).toBe(errorPrinter);
+            expect(callback).not.toHaveBeenCalled();
         });
     });
 
@@ -136,21 +144,20 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.stylize(null, callback);
-            expect(utils.handleErr).toHaveBeenCalledWith(
-                'No file loaded.',
-                null, callback
+            expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
+            expect(utils.raiseErr).toHaveBeenCalledWith(
+                'No file loaded.', null, errorPrinter
             );
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on missing options", function (done) {
             loadContent(text, function () {
                 toolbox.stylize(null, callback);
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid options.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid options.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -158,19 +165,19 @@ describe("module main", function () {
         it("reacts on missing sources", function (done) {
             loadContent(text, function () {
                 toolbox.stylize({}, callback);
-                expect(utils.handleErr).toHaveBeenCalledWith(
+                expect(utils.raiseErr).toHaveBeenCalledWith(
                     'No stylesheet supplied.',
-                    null, callback
+                    null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
-                utils.handleErr.calls.reset();
-                callback.calls.reset();
+                expect(callback).not.toHaveBeenCalled();
+                utils.raiseErr.calls.reset();
+                utils.errorPrinter.calls.reset();
                 toolbox.stylize({ src: {} }, callback);
-                expect(utils.handleErr).toHaveBeenCalledWith(
+                expect(utils.raiseErr).toHaveBeenCalledWith(
                     'No stylesheet supplied.',
-                    null, callback
+                    null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -179,8 +186,10 @@ describe("module main", function () {
             loadContent(text, function () {
                 toolbox.stylize({ src: 'file.css' }, callback);
                 libCallbacks.collect('message');
-                expect(utils.handleErr).not.toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(utils.raiseErr).not.toHaveBeenCalled();
+                expect(errorPrinter).toHaveBeenCalledWith('message');
+                expect(errorPrinter.calls.count()).toBe(1);
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -192,6 +201,7 @@ describe("module main", function () {
                 expect(lib.stylesheet.collect.calls.argsFor(0)[0]).toBe(opt);
                 expect(typeof lib.stylesheet.collect.calls.argsFor(0)[1]).toBe('function');
                 libCallbacks.collect(null, ['rules']);
+                expect(errorPrinter).not.toHaveBeenCalled();
                 expect(callback).toHaveBeenCalled();
                 expect(callback.calls.argsFor(0)[0]).toBeFalsy();
                 toolbox.write('fn', callback);
@@ -246,12 +256,13 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.inline(null, callback);
+            expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
             expect(lib.inline).not.toHaveBeenCalled();
-            expect(utils.handleErr).toHaveBeenCalledWith(
+            expect(utils.raiseErr).toHaveBeenCalledWith(
                 'No file loaded.',
-                null, callback
+                null, errorPrinter
             );
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on collection error", function (done) {
@@ -259,8 +270,9 @@ describe("module main", function () {
                 toolbox.inline(null, callback);
                 libCallbacks.collect('message');
                 expect(lib.inline).not.toHaveBeenCalled();
-                expect(utils.handleErr).not.toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(errorPrinter).toHaveBeenCalledWith('message');
+                expect(errorPrinter.calls.count()).toBe(1);
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -275,10 +287,8 @@ describe("module main", function () {
                 libCallbacks.collect(null, []);
                 expect(lib.inline.calls.argsFor(0)[0][0]).toEqual(($)[0]);
                 expect(lib.inline.calls.argsFor(0)[1]).toEqual(['rules']);
-                expect(typeof lib.inline.calls.argsFor(0)[2]).toBe('function');
-                libCallbacks.inline(null);
-                expect(callback).toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+                expect(lib.inline.calls.argsFor(0)[2]).toBe(errorPrinter);
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -332,23 +342,24 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.write(null, callback);
+            expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
             expect(fs.writeFile).not.toHaveBeenCalled();
-            expect(utils.handleErr).toHaveBeenCalledWith(
-                'No file loaded.',
-                null, callback
+            expect(utils.raiseErr).toHaveBeenCalledWith(
+                'No file loaded.', null, errorPrinter
             );
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on normalize errors", function (done) {
             loadContent(text, function () {
+                expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
                 path.normalize.and.throwError('message');
                 toolbox.write('target', callback);
                 expect(fs.writeFile).not.toHaveBeenCalled();
-                expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-                expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-                expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+                expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+                expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(errorPrinter);
+                expect(callback).not.toHaveBeenCalled();
                 done();
            });
         });
@@ -357,8 +368,10 @@ describe("module main", function () {
             loadContent(text, function () {
                 toolbox.write('target', callback);
                 fsCallbacks.write('message');
-                expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'message', 'file I/O', errorPrinter
+                );
+                expect(callback).not.toHaveBeenCalled();
                 done();
            });
         });
@@ -370,6 +383,7 @@ describe("module main", function () {
                 expect(fs.writeFile.calls.argsFor(0)[1]).toBe(text);
                 expect(typeof fs.writeFile.calls.argsFor(0)[2]).toBe('function');
                 fsCallbacks.write(null);
+                expect(errorPrinter).not.toHaveBeenCalled();
                 expect(callback).toHaveBeenCalled();
                 expect(callback.calls.argsFor(0)[0]).toBeFalsy();
                 done();
@@ -398,27 +412,27 @@ describe("module main", function () {
 
         it("reacts on no loaded content", function () {
             toolbox.export(null, callback);
+            expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
             expect(utils.testDir).not.toHaveBeenCalled();
             expect(lib.iconizePng).not.toHaveBeenCalled();
             expect(lib.iconizeSvg).not.toHaveBeenCalled();
-            expect(utils.handleErr).toHaveBeenCalledWith(
-                'No file loaded.',
-                null, callback
+            expect(utils.raiseErr).toHaveBeenCalledWith(
+                'No file loaded.', null, errorPrinter
             );
-            expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("reacts on missing options", function (done) {
             loadContent(text, function () {
                 toolbox.export(null, callback);
+                expect(utils.errorPrinter).toHaveBeenCalledWith(callback);
                 expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid options.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid options.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -426,22 +440,20 @@ describe("module main", function () {
         it("reacts on missing ids", function (done) {
             loadContent(text, function () {
                 toolbox.export({}, callback);
-                 expect(utils.testDir).not.toHaveBeenCalled();
+                expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid id list.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid id list.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
-                utils.handleErr.calls.reset();
+                expect(callback).not.toHaveBeenCalled();
+                utils.raiseErr.calls.reset();
                 callback.calls.reset();
                 toolbox.export({ ids: {} }, callback);
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid id list.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid id list.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -453,10 +465,10 @@ describe("module main", function () {
                 expect(utils.testDir).not.toHaveBeenCalled();
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr.calls.argsFor(0)[0].message).toBe('message');
-                expect(utils.handleErr.calls.argsFor(0)[1]).toBe('file I/O');
-                expect(utils.handleErr.calls.argsFor(0)[2]).toBe(callback);
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
+                expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+                expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(errorPrinter);
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -467,8 +479,10 @@ describe("module main", function () {
                 utilsCallbacks.testDir('message');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith('message', 'file I/O', callback);
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'message', 'file I/O', errorPrinter
+                );
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -479,21 +493,19 @@ describe("module main", function () {
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid export format.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid export format.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
-                utils.handleErr.calls.reset();
+                expect(callback).not.toHaveBeenCalled();
+                utils.raiseErr.calls.reset();
                 toolbox.export({ ids: [], format: 'txt' }, callback);
                 utilsCallbacks.testDir(null, 'dir/');
                 expect(lib.iconizePng).not.toHaveBeenCalled();
                 expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                expect(utils.handleErr).toHaveBeenCalledWith(
-                    'No valid export format.',
-                    null, callback
+                expect(utils.raiseErr).toHaveBeenCalledWith(
+                    'No valid export format.', null, errorPrinter
                 );
-                expect(callback.calls.argsFor(1)[0]).toBeTruthy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -507,20 +519,8 @@ describe("module main", function () {
                 expect(lib.iconizePng.calls.argsFor(0)[1]).toEqual({
                     ids: [], format: 'png', exportOptions: {}
                 });
-                expect(typeof lib.iconizePng.calls.argsFor(0)[2]).toBe('function');
-                libCallbacks.iconizePng(null);
-                expect(callback).toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeFalsy();
-                done();
-            });
-        });
-
-        it("reacts on iconizePng errors", function (done) {
-            loadContent(text, function () {
-                toolbox.export({ ids: [], format: 'png' }, callback);
-                utilsCallbacks.testDir(null, 'dir/');
-                libCallbacks.iconizePng('err');
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(lib.iconizePng.calls.argsFor(0)[2]).toBe(errorPrinter);
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -540,8 +540,9 @@ describe("module main", function () {
                 expect(lib.iconizeSvg.calls.argsFor(0)[2]).toBe(opt);
                 expect(typeof lib.iconizeSvg.calls.argsFor(0)[3]).toBe('function');
                 libCallbacks.iconizeSvg(null);
-                expect(callback).toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+                expect(errorPrinter).toHaveBeenCalled();
+                expect(errorPrinter.calls.argsFor(0)[0]).toBeFalsy();
+                expect(callback).not.toHaveBeenCalled();
                 done();
             });
         });
@@ -559,8 +560,8 @@ describe("module main", function () {
                 expect(lib.iconizeSvg.calls.argsFor(0)[2]).toBe(opt);
                 expect(typeof lib.iconizeSvg.calls.argsFor(0)[3]).toBe('function');
                 libCallbacks.iconizeSvg(null);
-                expect(callback).toHaveBeenCalled();
-                expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+                expect(errorPrinter).toHaveBeenCalled();
+                expect(errorPrinter.calls.argsFor(0)[0]).toBeFalsy();
                 done();
             });
         });
@@ -570,7 +571,7 @@ describe("module main", function () {
                 toolbox.export({ ids: [], format: 'svg' }, callback);
                 utilsCallbacks.testDir(null, 'dir/');
                 inlineCallback('err');
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(errorPrinter.calls.argsFor(0)[0]).toBeTruthy();
                 done();
             });
         });
@@ -581,7 +582,7 @@ describe("module main", function () {
                 utilsCallbacks.testDir(null, 'dir/');
                 inlineCallback(null);
                 libCallbacks.iconizeSvg('err');
-                expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+                expect(errorPrinter.calls.argsFor(0)[0]).toBeTruthy();
                 done();
             });
         });
