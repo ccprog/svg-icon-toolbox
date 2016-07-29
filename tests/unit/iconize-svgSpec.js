@@ -11,8 +11,8 @@ var prd = require('pretty-data');
 describe("module iconize-svg", function () {
     var utils, spawn, iconize, callback;
     var sourceFn, source, $xml, exportOptions;
-    var spawnCallback, cmdCallback, writeCallbacks, spawnLineFn;
-    var spawnSuccess;
+    var writeCallbacks;
+    var spawnCallback, spawnFailure;
 
     function loadIconize (ids, dimensions, dir, suffix, postProcess) {
         $xml = cheerio.load(source, { xmlMode: true });
@@ -23,11 +23,7 @@ describe("module iconize-svg", function () {
             postProcess: postProcess,
             exportOptions: exportOptions
         }, callback);
-        spawnCallback(spawnSuccess);
-        if (dimensions) {
-            dimensions.forEach(spawnLineFn);
-            cmdCallback(null);
-        }
+        spawnCallback(spawnFailure, dimensions || []);
     }
 
     beforeEach(function () {
@@ -44,12 +40,10 @@ describe("module iconize-svg", function () {
                                 .and.returnValue([])
         };
         spyOn(utils, 'raiseErr').and.callThrough();
-        spawnSuccess = null;
+        spawnFailure = null;
         spawn = jasmine.createSpy('spawn')
-                .and.callFake(function (cmd, lineFn, delay, cmdCb, spawnCb) {
-            spawnLineFn = lineFn;
-            cmdCallback = cmdCb;
-            spawnCallback = spawnCb;
+                .and.callFake(function (cmd, shell, callback) {
+            spawnCallback = callback;
         });
         iconize = SandboxedModule.require('../../lib/iconize-svg.js', {
             requires: { 'async': async, 'path': path, 'pretty-data': prd, 'fs': fs,
@@ -69,28 +63,20 @@ describe("module iconize-svg", function () {
         sourceFn = 'source';
         loadIconize([]);
         expect(spawn.calls.argsFor(0)[0]).toBe('inkscape -S source');
-        expect(typeof spawn.calls.argsFor(0)[1]).toBe('function');
-        expect(spawn.calls.argsFor(0)[2]).toBe(false);
-        expect(typeof spawn.calls.argsFor(0)[3]).toBe('function');
-        cmdCallback(null);
+        expect(spawn.calls.argsFor(0)[1]).toBe(false);
+        expect(typeof spawn.calls.argsFor(0)[2]).toBe('function');
         expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("reacts on spawn errors", function () {
-        spawnSuccess = 'err';
+        spawnFailure = 'err';
         loadIconize([]);
-        expect(callback).toHaveBeenCalledWith('err');
-    });
-
-    it("reacts on command errors", function () {
-        loadIconize([]);
-        cmdCallback('err');
-        expect(callback).toHaveBeenCalledWith('err');
+        expect(callback.calls.argsFor(0)[0]).toBe('err');
     });
 
     it("writes to target file name", function () {
         loadIconize(
-           ['object1', 'object2'],
+            ['object1', 'object2'],
             ['object1,5,5,10,20', 'object2,20,5,30,30']
         );
         var files = [
@@ -108,6 +94,17 @@ describe("module iconize-svg", function () {
         expect(callback).toHaveBeenCalledWith(null);
     });
 
+    it("reacts on missing ids", function () {
+        loadIconize(
+            ['object1'],
+            ['object2,20,5,30,30']
+        );
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('object object1 not found in loaded source.');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('SVG');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        expect(callback).toHaveBeenCalledWith('err');
+    });
+
     it("reacts on normalize errors", function () {
         path.normalize.and.throwError('message');
         loadIconize(
@@ -120,43 +117,32 @@ describe("module iconize-svg", function () {
         expect(callback).toHaveBeenCalledWith('err');
     });
 
-    it("reacts on missing ids", function () {
-        loadIconize(
-            ['object1'],
-            ['object2,20,5,30,30']
-        );
-        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('object object1 not found in loaded source.');
-        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('SVG');
-        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
-        expect(callback).toHaveBeenCalledWith('err');
-    });
-
     it("finds and applies dimensions", function () {
+        var objects = ['object1', 'object2'];
         loadIconize(
-            ['object1', 'object2'],
+            objects,
             ['object1,5,5,10,20', 'object2,20,5,30,30', 'object3,5,30,15,25']
         );
         expect(utils.computeTransform).toHaveBeenCalledWith('480', '260', undefined, undefined);
-        var text = fs.writeFile.calls.argsFor(0)[1];
-        var $svg = cheerio.load(text, { xmlMode: true })('svg');
-        expect($svg.attr('viewBox')).toBe('5 5 10 20');
-        expect($svg.attr('width')).toBe('10');
-        expect($svg.attr('height')).toBe('20');
-        writeCallbacks['object1.svg']();
-        text = fs.writeFile.calls.argsFor(1)[1];
-        $svg = cheerio.load(text, { xmlMode: true })('svg');
-        expect($svg.attr('viewBox')).toBe('20 5 30 30');
-        expect($svg.attr('width')).toBe('30');
-        expect($svg.attr('height')).toBe('30');
-        writeCallbacks['object2.svg']();
-        expect(callback).toHaveBeenCalledWith(null);
+        var $svg = {};
+        objects.forEach(function (obj) {
+            var call = fs.writeFile.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
+            })[0];
+            $svg[obj] = cheerio.load(call[1], { xmlMode: true })('svg');
+        });
+        expect($svg.object1.attr('viewBox')).toBe('5 5 10 20');
+        expect($svg.object1.attr('width')).toBe('10');
+        expect($svg.object1.attr('height')).toBe('20');
+        expect($svg.object2.attr('viewBox')).toBe('20 5 30 30');
+        expect($svg.object2.attr('width')).toBe('30');
+        expect($svg.object2.attr('height')).toBe('30');
     });
 
     it("detects root viewport mods", function () {
         source = '<?xml ?><svg viewBox="vb" preserveAspectRatio="par"' +
                  'transform="transform1" />';
         utils.computeTransform.and.returnValue(['transform2']);
-        spawnCallback(null);
         loadIconize(
             ['object1'],
             ['object1,5,5,10,20']
@@ -212,29 +198,46 @@ describe("module iconize-svg", function () {
     });
 
     it("pipes file to postProcess cli from inkscape stdout", function () {
+        var objects = ['object1', 'object2'];
         loadIconize(
-            ['object1'], ['object1,5,5,10,20'],
+            objects,
+            ['object1,5,5,10,20', 'object2,20,5,30,30'],
             null, null, 'command'
         );
         expect(spawn.calls.count()).toBe(1);
-        writeCallbacks['object1.svg']();
-        expect(spawn.calls.count()).toBe(2);
-        expect(spawn.calls.argsFor(1)[0]).toBe('command "object1.svg"');
-        expect(spawn.calls.argsFor(1)[1]).toBe(null);
-        expect(spawn.calls.argsFor(1)[2]).toBe(false);
-        expect(typeof spawn.calls.argsFor(1)[3]).toBe('function');
+        objects.forEach(function (obj) {
+            var call = fs.writeFile.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
+            })[0];
+            call[2]();
+            expect(spawn.calls.mostRecent().args[0]).toBe(`command ${obj}.svg`);
+            expect(spawn.calls.mostRecent().args[1]).toBe(false);
+            expect(typeof spawn.calls.mostRecent().args[2]).toBe('function');
+            expect(callback).not.toHaveBeenCalled();
+            spawn.calls.mostRecent().args[2](null);
+        });
+        expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("pipes file to postProcess function from inkscape stdout", function () {
         var postProcess = jasmine.createSpy('postProcess');
+        var objects = ['object1', 'object2'];
         loadIconize(
-            ['object1'], ['object1,5,5,10,20'],
+            objects,
+            ['object1,5,5,10,20', 'object2,20,5,30,30'],
             null, null, postProcess
         );
-        writeCallbacks['object1.svg']();
-        expect(spawn.calls.count()).toBe(1);
-        expect(postProcess.calls.argsFor(0)[0]).toBe('object1.svg');
-        expect(typeof postProcess.calls.argsFor(0)[1]).toBe('function');
+        objects.forEach(function (obj) {
+            var call = fs.writeFile.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
+            })[0];
+            call[2]();
+            expect(postProcess.calls.mostRecent().args[0]).toBe(`${obj}.svg`);
+            expect(typeof postProcess.calls.mostRecent().args[1]).toBe('function');
+            expect(callback).not.toHaveBeenCalled();
+            postProcess.calls.mostRecent().args[1](null);
+        });
+        expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("changes and restores cheerio root object", function () {
@@ -259,54 +262,52 @@ describe("module iconize-svg", function () {
         fs.readFile(`tests/assets/source.svg`, function (err, content) {
             if (err) throw err;
             source = content.toString();
+            var objects = ['object1', 'object2'];
             loadIconize(
-                ['object1', 'object2'],
+                objects,
                 ['object1,5,5,10,20', 'object2,20,5,30,30']
             );
-            var objText1, objText2;
-            if (fs.writeFile.calls.argsFor(0)[0] === 'object1.svg') {
-                objText1 = fs.writeFile.calls.argsFor(0)[1];
-                objText2 = fs.writeFile.calls.argsFor(1)[1];
-            } else {
-                objText1 = fs.writeFile.calls.argsFor(1)[1];
-                objText2 = fs.writeFile.calls.argsFor(0)[1];
-            }
-            var $obj1 = cheerio.load(objText1, {xmlMode: true});
-            expect($obj1('#path1').length).toBe(1);
-            expect($obj1('#path2').length).toBe(0);
-            expect($obj1('#path3').length).toBe(0);
-            expect($obj1('#grad1').length).toBe(0);
-            expect($obj1('#grad2').length).toBe(0);
-            expect($obj1('#cp').length).toBe(1);
-            expect($obj1('#use1').length).toBe(1);
-            expect($obj1('#branch1').length).toBe(1);
-            expect($obj1('#path4').length).toBe(1);
-            expect($obj1('#use2').length).toBe(0);
-            expect($obj1('#branch2').length).toBe(1);
-            expect($obj1('#object1').length).toBe(1);
-            expect($obj1('#object2').length).toBe(0);
-            expect($obj1('#rect1').length).toBe(0);
-            expect($obj1('#rect2').length).toBe(0);
-            expect($obj1('#branch3').length).toBe(0);
-            expect($obj1('#path5').length).toBe(0);
-            var $obj2 = cheerio.load(objText2, {xmlMode: true});
-            expect($obj2('#path1').length).toBe(1);
-            expect($obj2('#path2').length).toBe(0);
-            expect($obj2('#path3').length).toBe(0);
-            expect($obj2('#grad1').length).toBe(1);
-            expect($obj2('#grad2').length).toBe(0);
-            expect($obj2('#cp').length).toBe(1);
-            expect($obj2('#use1').length).toBe(1);
-            expect($obj2('#branch1').length).toBe(0);
-            expect($obj2('#path4').length).toBe(0);
-            expect($obj2('#use2').length).toBe(0);
-            expect($obj2('#branch2').length).toBe(1);
-            expect($obj2('#object1').length).toBe(0);
-            expect($obj2('#object2').length).toBe(1);
-            expect($obj2('#rect1').length).toBe(1);
-            expect($obj2('#rect2').length).toBe(1);
-            expect($obj2('#branch3').length).toBe(0);
-            expect($obj2('#path5').length).toBe(0);
+            var $svg = {};
+            objects.forEach(function (obj) {
+                var call = fs.writeFile.calls.allArgs().filter(function (args) {
+                    return args[0].indexOf(obj) >= 0;
+                })[0];
+                $svg[obj] = cheerio.load(call[1], { xmlMode: true });
+            });
+            expect($svg.object1('#path1').length).toBe(1);
+            expect($svg.object1('#path2').length).toBe(0);
+            expect($svg.object1('#path3').length).toBe(0);
+            expect($svg.object1('#grad1').length).toBe(0);
+            expect($svg.object1('#grad2').length).toBe(0);
+            expect($svg.object1('#cp').length).toBe(1);
+            expect($svg.object1('#use1').length).toBe(1);
+            expect($svg.object1('#branch1').length).toBe(1);
+            expect($svg.object1('#path4').length).toBe(1);
+            expect($svg.object1('#use2').length).toBe(0);
+            expect($svg.object1('#branch2').length).toBe(1);
+            expect($svg.object1('#object1').length).toBe(1);
+            expect($svg.object1('#object2').length).toBe(0);
+            expect($svg.object1('#rect1').length).toBe(0);
+            expect($svg.object1('#rect2').length).toBe(0);
+            expect($svg.object1('#branch3').length).toBe(0);
+            expect($svg.object1('#path5').length).toBe(0);
+            expect($svg.object2('#path1').length).toBe(1);
+            expect($svg.object2('#path2').length).toBe(0);
+            expect($svg.object2('#path3').length).toBe(0);
+            expect($svg.object2('#grad1').length).toBe(1);
+            expect($svg.object2('#grad2').length).toBe(0);
+            expect($svg.object2('#cp').length).toBe(1);
+            expect($svg.object2('#use1').length).toBe(1);
+            expect($svg.object2('#branch1').length).toBe(0);
+            expect($svg.object2('#path4').length).toBe(0);
+            expect($svg.object2('#use2').length).toBe(0);
+            expect($svg.object2('#branch2').length).toBe(1);
+            expect($svg.object2('#object1').length).toBe(0);
+            expect($svg.object2('#object2').length).toBe(1);
+            expect($svg.object2('#rect1').length).toBe(1);
+            expect($svg.object2('#rect2').length).toBe(1);
+            expect($svg.object2('#branch3').length).toBe(0);
+            expect($svg.object2('#path5').length).toBe(0);
             done();
         });
     });

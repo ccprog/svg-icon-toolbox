@@ -6,10 +6,9 @@ var async = require('async');
 var path = require('path');
 
 describe("module iconize-png", function () {
-    var stdin, utils, spawn, iconize, callback;
+    var utils, spawn, iconize, callback;
     var sourceFn, exportOptions;
-    var spawnLineFn, spawnCallback;
-    var spawnSuccess;
+    var shell, spawnCallback, spawnFailure;
 
     function loadIconize (ids, dir, suffix, postProcess) {
         iconize(sourceFn, {
@@ -19,22 +18,19 @@ describe("module iconize-png", function () {
             postProcess: postProcess,
             exportOptions: exportOptions
         }, callback);
-        spawnCallback(spawnSuccess, stdin);
+        spawnCallback(spawnFailure, shell);
     }
 
     beforeEach(function () {
         spyOn(path, 'normalize').and.callThrough();
-        stdin = {
-            write: jasmine.createSpy('write')
-        };
+        shell =  jasmine.createSpy('shell');
         utils = {
             raiseErr: jasmine.createSpy('raiseErr')
         };
-        spawnSuccess = null;
+        spawnFailure = null;
         spawn = jasmine.createSpy('spawn')
-                .and.callFake(function (cmd, lineFn, delay, cmdCb, spawnCb) {
-            spawnLineFn = lineFn;
-            spawnCallback = spawnCb;
+                .and.callFake(function (cmd, shell, callback) {
+            spawnCallback = callback;
         });
         iconize = SandboxedModule.require('../../lib/iconize-png.js', {
             requires: { 'async': async, 'path': path,
@@ -52,50 +48,59 @@ describe("module iconize-png", function () {
     it("spawns the inkscape shell", function () {
         loadIconize([]);
         expect(spawn.calls.argsFor(0)[0]).toBe('inkscape --shell');
-        expect(typeof spawn.calls.argsFor(0)[1]).toBe('function');
-        expect(spawn.calls.argsFor(0)[2]).toBe(true);
-        expect(spawn.calls.argsFor(0)[3]).toBe(callback);
-        expect(typeof spawn.calls.argsFor(0)[4]).toBe('function');
-        expect(stdin.write).toHaveBeenCalledWith('quit\n');
+        expect(spawn.calls.argsFor(0)[1]).toBe(true);
+        expect(typeof spawn.calls.argsFor(0)[2]).toBe('function');
+        expect(shell.calls.argsFor(0)[0]).toBe('quit\n');
+        expect(shell.calls.argsFor(0)[1]).toBe(null);
+        expect(typeof shell.calls.argsFor(0)[2]).toBe('function');
+        expect(callback).toHaveBeenCalledWith(null);
     });
 
-    it("reacts on spawn errors", function () {
-        spawnSuccess = 'message';
+    it("hands through spawn call errors", function () {
+        spawnFailure = 'err';
         loadIconize([]);
-        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('message');
-        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(callback);
+        expect(callback).toHaveBeenCalledWith('err');
     });
 
     it("constructs the export command", function () {
         var objects = ['object1', 'object2'];
         loadIconize(objects);
-        var commands = [
-            stdin.write.calls.argsFor(0)[0],
-            stdin.write.calls.argsFor(1)[0]
-        ];
         objects.forEach(function (obj) {
-            var command = commands.filter(function (cmd) {
-                return cmd.indexOf(obj) >= 0;
+            var call = shell.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
             })[0];
-            expect(command).toContain(`--export-id="${obj}" `);
-            expect(command).toContain('--export-id-only ');
-            expect(command).toContain(`--export-png="${obj}.png" `);
-            expect(command).toContain('source\n');
+            expect(call[0]).toContain(` --export-id="${obj}"`);
+            expect(call[0]).toContain(' --export-id-only');
+            expect(call[0]).toContain(` --export-png="${obj}.png"`);
+            expect(call[0]).toContain('source');
+            expect(call[0]).toContain('\n');
+            expect(call[1]).toEqual(new RegExp(`Bitmap.*: (.*${obj}.png)$`));
+            expect(typeof call[2]).toBe('function');
+            expect(callback).not.toHaveBeenCalled();
+            call[2](null, `${obj}.png`);
         });
-        expect(stdin.write.calls.argsFor(0)[1]).toBe('utf8');
-        expect(stdin.write.calls.argsFor(1)[1]).toBe('utf8');
-        expect(stdin.write).toHaveBeenCalledWith('quit\n');
-        expect(stdin.write.calls.count()).toBe(3);
+        expect(shell.calls.count()).toBe(3);
+        expect(shell.calls.argsFor(2)[0]).toBe('quit\n');
+        expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("reacts on normalize errors", function () {
         path.normalize.and.throwError('message');
         loadIconize(['object1']);
-        expect(stdin.write).toHaveBeenCalledWith('quit\n');
         expect(utils.raiseErr.calls.argsFor(0)[0].message).toBe('message');
         expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
-        expect(utils.raiseErr.calls.argsFor(0)[2]).toBe(callback);
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
+        utils.raiseErr.calls.argsFor(0)[2]('err');
+        expect(shell.calls.argsFor(0)[0]).toBe('quit\n');
+        expect(callback).toHaveBeenCalledWith('err');
+    });
+
+    it("reacts on shell errors", function () {
+        loadIconize(['object1']);
+        shell.calls.argsFor(0)[2]('err');
+        expect(utils.raiseErr.calls.argsFor(0)[0]).toBe('err');
+        expect(utils.raiseErr.calls.argsFor(0)[1]).toBe('file I/O');
+        expect(typeof utils.raiseErr.calls.argsFor(0)[2]).toBe('function');
     });
 
     it("understands exportOptions", function () {
@@ -111,10 +116,10 @@ describe("module iconize-png", function () {
             'random': true
         };
         loadIconize(['object1']);
-        var command = stdin.write.calls.argsFor(0)[0];
-        expect(command).toContain('--export-id="object1" ');
-        expect(command).toContain('--export-id-only ');
-        expect(command).toContain('--export-png="object1.png" ');
+        var command = shell.calls.argsFor(0)[0];
+        expect(command).toContain(' --export-id="object1"');
+        expect(command).toContain(' --export-id-only');
+        expect(command).toContain(' --export-png="object1.png"');
         for (let prop in exportOptions) {
             var part = ' --export-' + prop;
             if (typeof exportOptions[prop] !== 'boolean') {
@@ -130,35 +135,42 @@ describe("module iconize-png", function () {
 
     it("adds directories and suffixes", function () {
         loadIconize(['object1'], null, '-suffix');
-        expect(stdin.write.calls.argsFor(0)[0]).toContain('object1-suffix.png');
+        expect(shell.calls.argsFor(0)[0]).toContain('object1-suffix.png');
         loadIconize(['object1'], 'dir/');
-        expect(stdin.write.calls.argsFor(2)[0]).toContain('dir/object1.png');
+        expect(shell.calls.argsFor(1)[0]).toContain('dir/object1.png');
     });
 
-    // original inkscape stdout
-    var outLines = [
-        'Exporting only object with id="object"; all other objects hidden',
-        'Background RRGGBBAA: ffffff00',
-        'Area 4:236:56:260 exported to 52 x 24 pixels (90 dpi)',
-        'Bitmap saved as: object.png'
-    ];
-
     it("pipes file to postProcess cli from inkscape stdout", function () {
-        loadIconize([], null, null, 'command');
-        outLines.forEach(spawnLineFn);
-        expect(spawn.calls.count()).toBe(2);
-        expect(spawn.calls.argsFor(1)[0]).toBe('command object.png');
-        expect(spawn.calls.argsFor(1)[1]).toBe(null);
-        expect(spawn.calls.argsFor(1)[2]).toBe(false);
-        expect(spawn.calls.argsFor(1)[3]).toBe(callback);
-        expect(typeof spawn.calls.argsFor(1)[4]).toBe('function');
+        var objects = ['object1', 'object2'];
+        loadIconize(objects, null, null, 'command');
+        objects.forEach(function (obj) {
+            var call = shell.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
+            })[0];
+            call[2](null, `${obj}.png`);
+            expect(spawn.calls.mostRecent().args[0]).toBe(`command ${obj}.png`);
+            expect(spawn.calls.mostRecent().args[1]).toBe(false);
+            expect(typeof spawn.calls.mostRecent().args[2]).toBe('function');
+            expect(callback).not.toHaveBeenCalled();
+            spawn.calls.mostRecent().args[2](null);
+        });
+        expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("pipes file to postProcess function from inkscape stdout", function () {
         var postProcess = jasmine.createSpy('postProcess');
-        loadIconize([], null, null, postProcess);
-        outLines.forEach(spawnLineFn);
-        expect(spawn.calls.count()).toBe(1);
-        expect(postProcess).toHaveBeenCalledWith('object.png', callback);
+        var objects = ['object1', 'object2'];
+        loadIconize(['object1', 'object2'], null, null, postProcess);
+        objects.forEach(function (obj) {
+            var call = shell.calls.allArgs().filter(function (args) {
+                return args[0].indexOf(obj) >= 0;
+            })[0];
+            call[2](null, `${obj}.png`);
+            expect(postProcess.calls.mostRecent().args[0]).toBe(`${obj}.png`);
+            expect(typeof postProcess.calls.mostRecent().args[1]).toBe('function');
+            expect(callback).not.toHaveBeenCalled();
+            postProcess.calls.mostRecent().args[1](null);
+        });
+        expect(callback).toHaveBeenCalledWith(null);
     });
 });
