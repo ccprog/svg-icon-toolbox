@@ -7,11 +7,15 @@ var cheerio = require('cheerio');
 var path = require('path');
 
 describe("module main", function () {
-    var fs, utils, toolbox, callback, errorPrinter;
+    var fs, os, utils, toolbox, callback, errorPrinter;
     var sourceFn = 'source';
-    var fsCallbacks = {}, lib = {}, libCallbacks = {}, utilsCallbacks = {};
+    var fsCallbacks, lib, libCallbacks, utilsCallbacks;
 
     beforeEach(function () {
+        fsCallbacks = {};
+        lib = {};
+        libCallbacks = {};
+        utilsCallbacks = {};
         spyOn(path, 'normalize').and.callThrough();
         fs = {
             readFile: function (fn, callback) {
@@ -19,10 +23,20 @@ describe("module main", function () {
             },
             writeFile: function (fn, content, callback) {
                 fsCallbacks.write = callback;
+            },
+            unlink: function (fn, callback) {
+                fsCallbacks.unlink = callback;
             }
         };
         spyOn(fs, 'readFile').and.callThrough();
         spyOn(fs, 'writeFile').and.callThrough();
+        spyOn(fs, 'unlink').and.callThrough();
+        os = {
+            tmpdir: function () {
+                return '/tmp';
+            }
+        };
+        spyOn(os, 'tmpdir');
         errorPrinter = jasmine.createSpy('errorPrinter');
         utils = {
             testDir: function (dir, callback) {
@@ -472,14 +486,24 @@ describe("module main", function () {
         });
 
         describe("function export", function () {
-            var text;
+            var writeCallback, text;
+
+            function loadContent2(text, next) {
+                loadContent(text, () => {
+                    spyOn(loaded, 'write').and.callFake(function(targetFn, cb) {
+                        writeCallback = cb;
+                    });
+                    spyOn(loaded, 'inline');
+                    next();
+                });
+            }
 
             beforeEach(function () {
                 text = '<?xml ?><svg><style/></svg>';
             });
 
             it("inits the error printer", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     loaded.export(null, callback);
                     expect(utils.errorPrinter).toHaveBeenCalledWith(callback, loaded);
                     done();
@@ -487,7 +511,7 @@ describe("module main", function () {
             });
 
             it("reacts on missing options", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     loaded.export(null, callback);
                     expect(utils.testDir).not.toHaveBeenCalled();
                     expect(lib.iconizePng).not.toHaveBeenCalled();
@@ -501,7 +525,7 @@ describe("module main", function () {
             });
 
             it("reacts on missing ids", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     loaded.export({}, callback);
                     expect(utils.testDir).not.toHaveBeenCalled();
                     expect(lib.iconizePng).not.toHaveBeenCalled();
@@ -522,9 +546,9 @@ describe("module main", function () {
             });
 
             it("reacts on normalize errors", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     path.normalize.and.throwError('message');
-                    loaded.export({ ids: [] }, callback);
+                    loaded.export({ ids: [], format: 'png' }, callback);
                     expect(utils.testDir).not.toHaveBeenCalled();
                     expect(lib.iconizePng).not.toHaveBeenCalled();
                     expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -537,8 +561,8 @@ describe("module main", function () {
             });
 
             it("reacts on directory errors", function (done) {
-                loadContent(text, function () {
-                    loaded.export({ ids: [] }, callback);
+                loadContent2(text, function () {
+                    loaded.export({ ids: [], format: 'png' }, callback);
                     utilsCallbacks.testDir('message');
                     expect(lib.iconizePng).not.toHaveBeenCalled();
                     expect(lib.iconizeSvg).not.toHaveBeenCalled();
@@ -551,9 +575,8 @@ describe("module main", function () {
             });
 
             it("reacts on missing/false format", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     loaded.export({ ids: [] }, callback);
-                    utilsCallbacks.testDir(null, 'dir/');
                     expect(lib.iconizePng).not.toHaveBeenCalled();
                     expect(lib.iconizeSvg).not.toHaveBeenCalled();
                     expect(utils.raiseErr).toHaveBeenCalledWith(
@@ -562,7 +585,6 @@ describe("module main", function () {
                     expect(callback).not.toHaveBeenCalled();
                     utils.raiseErr.calls.reset();
                     loaded.export({ ids: [], format: 'txt' }, callback);
-                    utilsCallbacks.testDir(null, 'dir/');
                     expect(lib.iconizePng).not.toHaveBeenCalled();
                     expect(lib.iconizeSvg).not.toHaveBeenCalled();
                     expect(utils.raiseErr).toHaveBeenCalledWith(
@@ -574,66 +596,85 @@ describe("module main", function () {
             });
 
             it("calls iconizePng", function (done) {
-                loadContent(text, function () {
+                loadContent2(text, function () {
                     loaded.export({ ids: [], format: 'png' }, callback);
                     utilsCallbacks.testDir(null, 'dir/');
+                    expect(loaded.write).toHaveBeenCalled();
+                    var tmpfile = loaded.write.calls.argsFor(0)[0];
+                    expect(tmpfile.startsWith('/tmp')).toBe(true);
+                    expect(tmpfile.endsWith('.svg')).toBe(true);
+                    expect(typeof loaded.write.calls.argsFor(0)[1]).toBe('function');
+                    writeCallback(null);
                     expect(lib.iconizeSvg).not.toHaveBeenCalled();
-                    expect(lib.iconizePng.calls.argsFor(0)[0]).toBe('source');
+                    expect(lib.iconizePng.calls.argsFor(0)[0]).toBe(tmpfile);
                     expect(lib.iconizePng.calls.argsFor(0)[1]).toEqual({
                         ids: [], format: 'png', exportOptions: {}
                     });
-                    expect(lib.iconizePng.calls.argsFor(0)[2]).toBe(errorPrinter);
+                    expect(typeof lib.iconizePng.calls.argsFor(0)[2]).toBe('function');
+                    libCallbacks.iconizePng(null);
+                    expect(fs.unlink.calls.argsFor(0)[0]).toBe(tmpfile);
+                    expect(typeof fs.unlink.calls.argsFor(0)[1]).toBe('function');
                     expect(callback).not.toHaveBeenCalled();
+                    fsCallbacks.unlink(null);
+                    expect(callback).toHaveBeenCalled();
+                    expect(callback.calls.argsFor(0)[0]).toBeFalsy();
                     done();
                 });
             });
 
             it("calls iconizeSvg", function (done) {
-                loadContent(text, function () {
-                    spyOn(loaded, 'inline');
+                loadContent2(text, function () {
                     var opt = { ids: [], format: 'svg', exportOptions: {} };
                     loaded.export(opt, callback);
                     utilsCallbacks.testDir(null, 'dir/');
-                    expect(lib.iconizePng).not.toHaveBeenCalled();
-                    expect(lib.iconizeSvg).not.toHaveBeenCalled();
                     expect(loaded.inline.calls.argsFor(0)[0]).toEqual({});
                     expect(typeof loaded.inline.calls.argsFor(0)[1]).toBe('function');
                     loaded.inline.calls.argsFor(0)[1](null);
-                    expect(lib.iconizeSvg.calls.argsFor(0)[0]).toBe('source');
+                    expect(loaded.write).toHaveBeenCalled();
+                    var tmpfile = loaded.write.calls.argsFor(0)[0];
+                    expect(tmpfile.startsWith('/tmp')).toBe(true);
+                    expect(tmpfile.endsWith('.svg')).toBe(true);
+                    expect(typeof loaded.write.calls.argsFor(0)[1]).toBe('function');
+                    writeCallback(null);
+                    expect(lib.iconizePng).not.toHaveBeenCalled();
+                    expect(lib.iconizeSvg.calls.argsFor(0)[0]).toBe(tmpfile);
                     expect(typeof lib.iconizeSvg.calls.argsFor(0)[1]).toBe('function');
                     expect(lib.iconizeSvg.calls.argsFor(0)[2]).toBe(opt);
                     expect(typeof lib.iconizeSvg.calls.argsFor(0)[3]).toBe('function');
                     libCallbacks.iconizeSvg(null);
-                    expect(errorPrinter).toHaveBeenCalled();
-                    expect(errorPrinter.calls.argsFor(0)[0]).toBeFalsy();
+                    expect(fs.unlink.calls.argsFor(0)[0]).toBe(tmpfile);
+                    expect(typeof fs.unlink.calls.argsFor(0)[1]).toBe('function');
                     expect(callback).not.toHaveBeenCalled();
+                    fsCallbacks.unlink(null);
+                    expect(callback).toHaveBeenCalled();
+                    expect(callback.calls.argsFor(0)[0]).toBeFalsy();
                     done();
                 });
             });
 
             it("calls iconizeSvg immediatly if no stylesheet is found", function (done) {
                 text = '<?xml ?><svg></svg>';
-                loadContent(text, function () {
-                    spyOn(loaded, 'inline');
+                loadContent2(text, function () {
                     var opt = { ids: [], format: 'svg', exportOptions: {} };
                     loaded.export(opt, callback);
                     utilsCallbacks.testDir(null, 'dir/');
+                    writeCallback(null);
                     expect(lib.iconizePng).not.toHaveBeenCalled();
                     expect(loaded.inline).not.toHaveBeenCalled();
-                    expect(lib.iconizeSvg.calls.argsFor(0)[0]).toBe('source');
                     expect(typeof lib.iconizeSvg.calls.argsFor(0)[1]).toBe('function');
                     expect(lib.iconizeSvg.calls.argsFor(0)[2]).toBe(opt);
                     expect(typeof lib.iconizeSvg.calls.argsFor(0)[3]).toBe('function');
                     libCallbacks.iconizeSvg(null);
-                    expect(errorPrinter).toHaveBeenCalled();
-                    expect(errorPrinter.calls.argsFor(0)[0]).toBeFalsy();
+                    expect(callback).not.toHaveBeenCalled();
+                    fsCallbacks.unlink(null);
+                    expect(callback).toHaveBeenCalled();
+                    expect(callback.calls.argsFor(0)[0]).toBeFalsy();
                     done();
                 });
             });
 
             it("reacts on inline errors", function (done) {
-                loadContent(text, function () {
-                    spyOn(loaded, 'inline');
+                loadContent2(text, function () {
                     loaded.export({ ids: [], format: 'svg' }, callback);
                     utilsCallbacks.testDir(null, 'dir/');
                     loaded.inline.calls.argsFor(0)[1]('err');
@@ -642,14 +683,39 @@ describe("module main", function () {
                 });
             });
 
-            it("reacts on iconizeSvg errors", function (done) {
-                loadContent(text, function () {
-                    spyOn(loaded, 'inline');
+            it("reacts on write errors", function (done) {
+                loadContent2(text, function () {
                     loaded.export({ ids: [], format: 'svg' }, callback);
                     utilsCallbacks.testDir(null, 'dir/');
                     loaded.inline.calls.argsFor(0)[1](null);
+                    writeCallback('err');
+                    expect(errorPrinter.calls.argsFor(0)[0]).toBeTruthy();
+                    done();
+                });
+            });
+
+            it("reacts on iconizeSvg errors", function (done) {
+                loadContent2(text, function () {
+                    loaded.export({ ids: [], format: 'svg' }, callback);
+                    utilsCallbacks.testDir(null, 'dir/');
+                    loaded.inline.calls.argsFor(0)[1](null);
+                    writeCallback(null);
                     libCallbacks.iconizeSvg('err');
                     expect(errorPrinter.calls.argsFor(0)[0]).toBeTruthy();
+                    done();
+                });
+            });
+
+            it("reacts on unlink errors", function (done) {
+                loadContent2(text, function () {
+                    loaded.export({ ids: [], format: 'svg' }, callback);
+                    utilsCallbacks.testDir(null, 'dir/');
+                    loaded.inline.calls.argsFor(0)[1](null);
+                    writeCallback(null);
+                    libCallbacks.iconizeSvg(null);
+                    fsCallbacks.unlink('err');
+                    expect(errorPrinter.calls.argsFor(0)[0]).toBeTruthy();
+                    expect(callback).not.toHaveBeenCalled();
                     done();
                 });
             });

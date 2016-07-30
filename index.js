@@ -4,6 +4,7 @@ var cheerio = require('cheerio');
 var async = require('async');
 var fs = require('fs');
 var path = require('path');
+var os =  require('os');
 var normalize = async.asyncify(path.normalize);
 
 var utils = require('./lib/utils.js');
@@ -163,25 +164,34 @@ Loaded.prototype.export = function (opt, callback) {
     }
     if (!opt.exportOptions) opt.exportOptions = {};
 
-    async.waterfall([
-        async.apply(normalize, opt.dir || '.'),
-        async.apply(utils.testDir)
-    ], (err) => {
-        if (err) return utils.raiseErr(err, 'file I/O', errorPrinter);
-        switch (opt.format) {
-        case 'png':
-            iconizePng(this.sourceFn, opt, errorPrinter);
-            break;
-        case 'svg':
-            let tasks = [async.apply(iconizeSvg, this.sourceFn, this.$, opt)];
-            if (this.$('style').length) {
-                tasks.unshift(async.apply(this.inline, {}));
-            }
-            async.series(tasks, errorPrinter);
-            break;
-        default:
-            return utils.raiseErr('No valid export format.', null, errorPrinter);
+    var tmpfile = os.tmpdir() + path.sep + process.pid;
+    tmpfile += new Date().getTime() + '-svg-icon-toolbox.svg';
+    var series = [
+        (next) => {
+            async.waterfall([
+                async.apply(normalize, opt.dir || '.'),
+                async.apply(utils.testDir),
+            ], next);
+        },
+        (next) => this.write(tmpfile, next),
+    ];
+    switch (opt.format) {
+    case 'png':
+        series.push((next) => iconizePng(tmpfile, opt, next));
+        break;
+    case 'svg':
+        if (this.$('style').length) {
+            series.splice(1, 0, (next) => this.inline({}, next));
         }
+        series.push((next) => iconizeSvg(tmpfile, this.$, opt, next));
+        break;
+    default:
+        return utils.raiseErr('No valid export format.', null, errorPrinter);
+    }
+    series.push((next) => fs.unlink(tmpfile, next));
+    async.series(series, (err) => {
+        if (err) return utils.raiseErr(err, 'file I/O', errorPrinter);
+        return callback(null, this);
     });
 };
 
