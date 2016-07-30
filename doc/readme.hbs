@@ -7,23 +7,17 @@ work in progress.
 
 ```js
 var toolbox = require('svg-icon-toolbox');
-var eachSeries = require('async').eachSeries;
 
-toolbox.load('tests/adhoc/assets.svg', function (err, loaded) {
-    eachSeries([
-        { task: 'load', arg: 'src/assets.svg' },
-        { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
-        { task: 'write', arg: 'src/assets.svg' },
-        { task: 'export', arg: {
-            ids: list,
-            format: 'png',
-            dir: 'assets/'
-            exportOptions: { dpi: 180 }
-        } }
-    ], (item, callback) => {
-        loaded[item.task](item.arg, callback);
-    });
-});
+toolbox.batch('tests/adhoc/assets.svg', [
+    { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
+    { task: 'write', arg: 'src/assets.svg' },
+    { task: 'export', arg: {
+        ids: list,
+        format: 'png',
+        dir: 'assets/'
+        exportOptions: { dpi: 180 }
+    } }
+], callback);
 ```
 
 ## API

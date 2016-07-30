@@ -58,29 +58,34 @@ describe("module utils", function () {
     });
 
     describe("function errorPrinter", function () {
+        var self = 'self';
+
         it("prints errors to console", function () {
             var callback = jasmine.createSpy('callback');
             var err = new Error('message');
             err.toolbox = 'command';
-            utils.errorPrinter(callback)(err);
+            utils.errorPrinter(callback, self)(err);
             expect(console.error).toHaveBeenCalledWith('Error in command:\n  message');
             expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback.calls.argsFor(0)[1]).toBe(self);
         });
 
         it("exchanges module name for missing command", function () {
             var callback = jasmine.createSpy('callback');
             var err = new Error('message');
             err.toolbox = null;
-            utils.errorPrinter(callback)(err);
+            utils.errorPrinter(callback, self)(err);
             expect(console.error).toHaveBeenCalledWith('Error in svg-icon-toolbox:\n  message');
             expect(callback.calls.argsFor(0)[0]).toBeTruthy();
+            expect(callback.calls.argsFor(0)[1]).toBe(self);
         });
 
         it("bypasses without error", function () {
             var callback = jasmine.createSpy('callback');
-            utils.errorPrinter(callback)();
+            utils.errorPrinter(callback, self)();
             expect(console.error).not.toHaveBeenCalled();
             expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+            expect(callback.calls.argsFor(0)[1]).toBe(self);
         });
     });
 
