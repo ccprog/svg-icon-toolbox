@@ -469,6 +469,20 @@ describe("module Loaded", function () {
             expect(callback.calls.argsFor(0)[0]).toBeFalsy();
         });
 
+        it("does not alter loaded file", function () {
+            loadContent2(text);
+            var opt = { ids: [], format: 'svg', exportOptions: {} };
+            loaded.export(opt, callback);
+            utilsCallbacks.testDir(null, 'dir/');
+            loaded.$('style').remove();
+            loaded.$('svg').css('fill', 'black');
+            loaded.inline.calls.argsFor(0)[1](null);
+            writeCallback(null);
+            libCallbacks.iconizeSvg(null);
+            fsCallbacks.unlink(null);
+            expect(loaded.$.xml()).toBe(text);
+        });
+
         it("calls iconizeSvg immediatly if no stylesheet is found", function () {
             text = '<?xml ?><svg></svg>';
             loadContent2(text);
