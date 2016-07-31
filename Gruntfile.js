@@ -44,7 +44,7 @@ module.exports = function(grunt) {
           partial: ['doc/*.hbs'],
           template: grunt.file.read('doc/readme.hbs')
         },
-        src: ['index.js'],
+        src: ['index.js', 'lib/Loaded.js'],
         dest: 'README.md'
       }
     }
