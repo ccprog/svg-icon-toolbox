@@ -4,7 +4,9 @@ var SandboxedModule = require('sandboxed-module');
 var isr = require('../lib/istanbul-reporter.js');
 
 describe("module utils", function () {
-    var path, cp, console, utils, callback;
+    var EventEmitter = require('events');
+    var path, cp, readline, fs, console, utils;
+    var reader, callback;
 
     beforeEach(function () {
         path = {
@@ -13,11 +15,21 @@ describe("module utils", function () {
         cp = {
             execSync: jasmine.createSpy('execSync')
         };
+        readline = {
+            createInterface: function () {
+                reader = new EventEmitter();
+                return reader;
+            }
+        };
+        spyOn(readline, 'createInterface').and.callThrough();
+        fs = {
+            createReadStream:  jasmine.createSpy('createReadStream')
+        };
         console = {
             error: jasmine.createSpy('error')
         };
         utils = SandboxedModule.require('../../lib/utils.js', {
-            requires: { 'path': path, 'child_process': cp },
+            requires: { 'path': path, 'child_process': cp, 'readline': readline, 'fs': fs },
             globals: { 'console': console },
             sourceTransformers: {
                 istanbul: isr.transformer
@@ -100,6 +112,33 @@ describe("module utils", function () {
             cp.execSync.and.throwError('message');
             utils.testDir('direc/tory', callback);
             expect(callback).toHaveBeenCalledWith('message');
+        });
+    });
+
+    describe("function readLines", function () {
+        it('collects lines', function () {
+            utils.readLines('fn', callback);
+            expect(fs.createReadStream).toHaveBeenCalledWith('fn');
+            expect(readline.createInterface).toHaveBeenCalled();
+            reader.emit('line', 'string1 ');
+            reader.emit('line', ' string2');
+            reader.emit('line', '');
+            expect(callback).not.toHaveBeenCalled();
+            reader.emit('close');
+            expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+            expect(callback.calls.argsFor(0)[1]).toEqual(['string1', 'string2']);
+        });
+
+        it('reacts on file errors', function () {
+            fs.createReadStream.and.throwError('err');
+            utils.readLines('fn', callback);
+            expect(callback.calls.argsFor(0)[0].message).toBe('err');
+        });
+
+        it('reacts on readline errors', function () {
+            readline.createInterface.and.throwError('err');
+            utils.readLines('fn', callback);
+            expect(callback.calls.argsFor(0)[0].message).toBe('err');
         });
     });
 

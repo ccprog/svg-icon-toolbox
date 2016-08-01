@@ -47,11 +47,15 @@ describe("module Loaded", function () {
             },
             errorPrinter: function () {
                 return errorPrinter;
+            },
+            readLines: function (fn, callback) {
+                utilsCallbacks.readLines = callback;
             }
         };
         spyOn(utils, 'testDir').and.callThrough();
         spyOn(utils, 'raiseErr').and.callThrough();
         spyOn(utils, 'errorPrinter').and.callThrough();
+        spyOn(utils, 'readLines').and.callThrough();
         lib = {
             stylesheet: {
                 collect: function (opt, callback) {
@@ -467,6 +471,40 @@ describe("module Loaded", function () {
             fsCallbacks.unlink(null);
             expect(callback).toHaveBeenCalled();
             expect(callback.calls.argsFor(0)[0]).toBeFalsy();
+        });
+
+        it("loads ids from a file", function () {
+            loadContent2(text);
+            loaded.export({ idFile: 'list', format: 'png' }, callback);
+            utilsCallbacks.testDir(null, 'dir/');
+            writeCallback(null);
+            expect(utils.readLines.calls.argsFor(0)[0]).toBe('list');
+            expect(typeof utils.readLines.calls.argsFor(0)[1]).toBe('function');
+            utilsCallbacks.readLines(null, ['object']);
+            expect(lib.iconizePng.calls.argsFor(0)[1].ids).toEqual(['object']);
+        });
+
+        it("superceeds ids with ids from a file", function () {
+            loadContent2(text);
+            loaded.export({ ids: ['object1'], idFile: 'list', format: 'png' }, callback);
+            utilsCallbacks.testDir(null, 'dir/');
+            writeCallback(null);
+            expect(utils.readLines.calls.argsFor(0)[0]).toBe('list');
+            expect(typeof utils.readLines.calls.argsFor(0)[1]).toBe('function');
+            utilsCallbacks.readLines(null, ['object2']);
+            expect(lib.iconizePng.calls.argsFor(0)[1].ids).toEqual(['object2']);
+        });
+
+        it("reacts on readLines errors", function () {
+            loadContent2(text);
+            loaded.export({ idFile: 'list', format: 'png' }, callback);
+            utilsCallbacks.testDir(null, 'dir/');
+            writeCallback(null);
+            utilsCallbacks.readLines('message');
+            expect(utils.raiseErr).toHaveBeenCalledWith(
+                'message', 'file I/O', errorPrinter
+            );
+            expect(callback).not.toHaveBeenCalled();
         });
 
         it("does not alter loaded file", function () {
