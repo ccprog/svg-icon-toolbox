@@ -27,7 +27,7 @@ module.exports = function(grunt) {
               },
               reporting: {
                 dir: './tests/coverage',
-                reports: ['text','json','html']
+                reports: ['text','lcov','html']
               }
           })
           ]
@@ -44,7 +44,7 @@ module.exports = function(grunt) {
           partial: ['doc/*.hbs'],
           template: grunt.file.read('doc/readme.hbs')
         },
-        src: ['index.js', 'lib/Loaded.js'],
+        src: ['index.js', 'lib/Loaded.js', 'lib/iconize.js'],
         dest: 'README.md'
       }
     }
@@ -53,4 +53,5 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-jasmine-nodejs');
   grunt.loadNpmTasks('grunt-jsdoc-to-markdown');
+  grunt.registerTask('test', ['jshint', 'jasmine_nodejs']);
 };

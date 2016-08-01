@@ -8,16 +8,44 @@ work in progress.
 ```js
 var toolbox = require('svg-icon-toolbox');
 
-toolbox.batch('tests/adhoc/assets.svg', [
+var list = ['icon-default', 'icon-active', 'icon-insensitive'];
+
+toolbox.batch('src/assets.svg', [
     { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
-    { task: 'write', arg: 'src/assets.svg' },
+    { task: 'write', arg: 'dist/assets.svg' },
     { task: 'export', arg: {
         ids: list,
         format: 'png',
-        dir: 'assets/'
+        dir: 'dist/assets/'
         exportOptions: { dpi: 180 }
     } }
 ], callback);
+```
+### As a Grunt task
+
+```
+module.exports = function(grunt) {
+
+  grunt.initConfig({
+    svg_icon_toolbox: {
+      src: 'src/assets.svg',
+      options: {
+        tasks: [
+          { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
+          { task: 'write', arg: 'dist/assets.svg' },
+          { task: 'export', arg: {
+              idFile: 'src/iconlist.txt',
+              format: 'png',
+              dir: 'dist/assets/'
+              exportOptions: { dpi: 180 }
+          } }
+        ]
+      }
+    }
+  });
+
+  grunt.task.loadNpmTasks('svg_icon_toolbox');
+};
 ```
 
 ## API

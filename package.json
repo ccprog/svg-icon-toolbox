@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=4.4"
   },
+  "scripts": {
+    "test": "grunt test"
+  },
   "dependencies": {
     "async": "^2.0.0",
     "cheerio": "^0.20.0",

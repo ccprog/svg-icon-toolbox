@@ -8,16 +8,44 @@ work in progress.
 ```js
 var toolbox = require('svg-icon-toolbox');
 
-toolbox.batch('tests/adhoc/assets.svg', [
+var list = ['icon-default', 'icon-active', 'icon-insensitive'];
+
+toolbox.batch('src/assets.svg', [
     { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
-    { task: 'write', arg: 'src/assets.svg' },
+    { task: 'write', arg: 'dist/assets.svg' },
     { task: 'export', arg: {
         ids: list,
         format: 'png',
-        dir: 'assets/'
+        dir: 'dist/assets/'
         exportOptions: { dpi: 180 }
     } }
 ], callback);
+```
+### As a Grunt task
+
+```
+module.exports = function(grunt) {
+
+  grunt.initConfig({
+    svg_icon_toolbox: {
+      src: 'src/assets.svg',
+      options: {
+        tasks: [
+          { task: 'stylize', arg: {src: 'src/sass/assets.scss'} },
+          { task: 'write', arg: 'dist/assets.svg' },
+          { task: 'export', arg: {
+              idFile: 'src/iconlist.txt',
+              format: 'png',
+              dir: 'dist/assets/'
+              exportOptions: { dpi: 180 }
+          } }
+        ]
+      }
+    }
+  });
+
+  grunt.task.loadNpmTasks('svg_icon_toolbox');
+};
 ```
 
 ## API
@@ -124,6 +152,12 @@ Write the loaded file to a target file.
 Export a list of objects from the loaded file to separate icon files, either
 in PNG or SVG format.
 
+The command needs a list of object IDs from the loaded file to export. The
+exported files will be nemed from these IDs. The list can be in the form
+of an Array included as `opt.ids` or imported from an external file named
+as `opt.idFile`. Such a file must consist only of the object ids, each
+on its own line. A file superceeds the ID Array, if both exist.
+
 For SVG, if the [Loaded](#Loaded) object contains stylesheets, the exported
 files will have all styles distributed to inline style attributes. Despite
 this, the Loaded object returned by the callback is guaranteed to be
@@ -134,7 +168,8 @@ unaltered.
 | Param | Type | Default | Description |
 | --- | --- | --- | --- |
 | opt | <code>Object</code> |  |  |
-| opt.ids | <code>Array.&lt;string&gt;</code> |  | list of object ids to export |
+| [opt.ids] | <code>Array.&lt;string&gt;</code> |  | list of object ids to export. If missing,     opt.idFile must be given. |
+| [opt.idFile] | <code>Array.&lt;string&gt;</code> |  | name of file containing object ids to export.     If missing, opt.ids must be given. |
 | opt.format | <code>string</code> |  | png or svg |
 | [opt.dir] | <code>string</code> | <code>&quot;.&quot;</code> | directory to write to |
 | [opt.postfix] | <code>string</code> |  | name exported files in the form     `${id}${postfix}.${format}` |
