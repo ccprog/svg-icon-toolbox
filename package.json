@@ -27,12 +27,16 @@
     "sandboxed-module": "^2.0.3"
   },
   "repository": "ccprog/svg-icon-toolbox",
+  "bugs": {
+    "url": "https://github.com/ccprog/svg-icon-toolbox/issues"
+  },
   "keywords": [
     "svg",
     "css",
     "sass",
     "icons",
-    "assets"
+    "assets",
+    "gruntplugin"
   ],
   "author": "Claus Colloseus <ccprog@gmx.de>",
   "license": "SEE LICENSE IN LICENSE"

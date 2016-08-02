@@ -4,8 +4,31 @@
 [![Coverage Status](https://coveralls.io/repos/github/ccprog/svg-icon-toolbox/badge.svg?branch=master)](https://coveralls.io/github/ccprog/svg-icon-toolbox?branch=master)
 [![GitHub version](https://badge.fury.io/gh/ccprog%2Fsvg-icon-toolbox.svg)](https://badge.fury.io/gh/ccprog%2Fsvg-icon-toolbox)
 
-A toolbox for svg icon and style assets workflows. This is still
-work in progress.
+A toolbox for svg icon and style assets workflows for node.js.
+
+The use of stylesheets with standalone SVG files is not ubiquitious. Browsers
+understand them, some renderers (like [librsvg](https://wiki.gnome.org/Projects/LibRsvg))
+do not. Workflow in editors mostly do not support their usage, or are at least
+not helpfull, even if they understand them.
+
+This module aims to bridge that state of affairs by offering a workflow that
+- inserts stylesheets into SVG files, optionally compiling them from Sass
+- inlines stylesheets by distributing all styles into element style attributes
+
+Secondly, it exports single objects from such a file to PNG or SVG (icon) files.
+This part of the workflow depends on the command line features of
+[Inkscape](https://inkscape.org) for
+- identifying the bounding box of objects: a major undertaking not easily done,
+  so the module takes advantage of the existing solution
+- PNG export: to ensure the correct interpretation of stylesheets
+
+## Installation
+
+```shell
+npm install svg-icon-toolbox --save-dev
+```
+
+Make sure Inkscape is installed and in your `PATH`.
 
 ## Usage
 
@@ -26,6 +49,17 @@ toolbox.batch('src/assets.svg', [
 ], callback);
 ```
 ### As a Grunt task
+
+If you haven't used [Grunt](http://gruntjs.com/) before, be sure to check out the
+[Getting Started](http://gruntjs.com/getting-started) guide, as it explains how
+to create a [Gruntfile](http://gruntjs.com/sample-gruntfile) as well as install
+and use Grunt plugins. Once you're familiar with that process, do not forget to
+install grunt:
+
+```shell
+npm install grunt --save-dev
+```
+Then configure:
 
 ```
 module.exports = function(grunt) {
@@ -48,7 +82,7 @@ module.exports = function(grunt) {
     }
   });
 
-  grunt.task.loadNpmTasks('svg_icon_toolbox');
+  grunt.task.loadNpmTasks('svg-icon-toolbox');
 };
 ```
 
@@ -176,7 +210,7 @@ unaltered.
 | [opt.idFile] | <code>Array.&lt;string&gt;</code> |  | name of file containing object ids to export.     If missing, opt.ids must be given. |
 | opt.format | <code>string</code> |  | png or svg |
 | [opt.dir] | <code>string</code> | <code>&quot;.&quot;</code> | directory to write to |
-| [opt.postfix] | <code>string</code> |  | name exported files in the form     `${id}${postfix}.${format}` |
+| [opt.suffix] | <code>string</code> |  | name exported files in the form     `${id}${postfix}.${format}` |
 | [opt.postProcess] | <code>string</code> &#124; <code>function</code> |  | executed on the     exported file. If a string, as a CLI command, if a function, directly.     Both get the qualified file name as argument. A function should have     the form `(fileName, callback) => void` and execute the callback with     `(err)`. |
 | [opt.exportOptions] | <code>Object</code> |  | for PNG, the following `inkscape --export-${cmd}` command line options       are permissible: background, background-opacity, use-hints, dpi,       text-to-path, ignore-filters, width and height.<br/><br/>     for SVG, `width`, `height` and `preserveAspectRatio` can be set as attributes       of the root svg element. The `viewBox` attribute will be set to the bounding       box of the exported object. |
 | callback | <code>[callback](#module_toolbox..callback)</code> |  | node style callback gets the     [Loaded](#Loaded) object. |

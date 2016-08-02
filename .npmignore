@@ -1,0 +1,10 @@
+additional/
+*~
+.vscode/
+jsconfig.json
+tests/
+doc/
+.coveralls.yml
+.travis.yml
+.jshintrc
+Gruntfile.js
