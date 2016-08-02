@@ -40,7 +40,9 @@ module.exports = function(grunt) {
       oneOutputFile: {
         options: {
           'module-index-format': 'none',
+          'heading-depth': 3,
           'name-format': 'code',
+          'param-list-format': 'list',
           partial: ['doc/*.hbs'],
           template: grunt.file.read('doc/readme.hbs')
         },
