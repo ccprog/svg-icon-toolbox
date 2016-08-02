@@ -1,5 +1,9 @@
 # svg-icon-toolbox
 
+[![Build Status](https://travis-ci.org/ccprog/svg-icon-toolbox.svg?branch=master)](https://travis-ci.org/ccprog/svg-icon-toolbox)
+[![Coverage Status](https://coveralls.io/repos/github/ccprog/svg-icon-toolbox/badge.svg?branch=master)](https://coveralls.io/github/ccprog/svg-icon-toolbox?branch=master)
+[![GitHub version](https://badge.fury.io/gh/ccprog%2Fsvg-icon-toolbox.svg)](https://badge.fury.io/gh/ccprog%2Fsvg-icon-toolbox)
+
 A toolbox for svg icon and style assets workflows. This is still
 work in progress.
 

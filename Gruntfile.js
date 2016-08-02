@@ -60,4 +60,5 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-jsdoc-to-markdown');
   grunt.loadNpmTasks('grunt-coveralls');
   grunt.registerTask('test', ['jshint', 'jasmine_nodejs']);
+  grunt.registerTask('build', ['jsdoc2md', 'coveralls']);
 };
