@@ -47,11 +47,17 @@ module.exports = function(grunt) {
         src: ['index.js', 'lib/Loaded.js', 'lib/iconize.js'],
         dest: 'README.md'
       }
+    },
+    coveralls: {
+      default: {
+        src: 'tests/coverage/*.info',
+      }
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-jasmine-nodejs');
   grunt.loadNpmTasks('grunt-jsdoc-to-markdown');
+  grunt.loadNpmTasks('grunt-coveralls');
   grunt.registerTask('test', ['jshint', 'jasmine_nodejs']);
 };
