@@ -151,6 +151,10 @@ describe("module spawn", function () {
         child.stderr.emit('data', new Buffer('message'));
         expect(utils.raiseErr).toHaveBeenCalledWith('message', 'question1', lineFn1);
         expect(lineFn1).not.toHaveBeenCalled();
+        child.stdout.emit('data', new Buffer('my answer\n'));
+        expect(lineFn1).toHaveBeenCalled();
+        child.stderr.emit('data', new Buffer('message'));
+        expect(utils.raiseErr).toHaveBeenCalledWith('message', 'question2', lineFn2);
         expect(lineFn2).not.toHaveBeenCalled();
     });
 });
