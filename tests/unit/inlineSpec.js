@@ -97,4 +97,16 @@ describe("module inline", function () {
         expect($xml('#obj1').css('prop')).toBe('value2');
         expect($xml('#obj2').css('prop')).toBe('value1');
     });
+
+    it("handles multiple identical selectors and properties", function () {
+        loadInline([
+            '.one {prop1: value1} .two, .one {prop2: value2}',
+            '.two {prop1: value1; prop1: value2}',
+            '.two {prop3: value1} .two {prop3: value2}'
+        ]);
+        expect($xml('#obj1').css('prop1')).toBe('value1');
+        expect($xml('#obj1').css('prop2')).toBe('value2');
+        expect($xml('#obj2').css('prop1')).toBe('value2');
+        expect($xml('#obj2').css('prop3')).toBe('value2');
+    });
 });
