@@ -1,6 +1,6 @@
 {
   "name": "svg-icon-toolbox",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "toolbox for svg icon and style assets workflows",
   "main": "index.js",
   "engines": {
