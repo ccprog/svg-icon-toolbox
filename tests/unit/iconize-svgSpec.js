@@ -65,7 +65,7 @@ describe("module iconize-svg", function () {
         expect(spawn.calls.argsFor(0)[0]).toBe('inkscape -S source');
         expect(spawn.calls.argsFor(0)[1]).toBe(false);
         expect(typeof spawn.calls.argsFor(0)[2]).toBe('function');
-        expect(callback).toHaveBeenCalledWith(null);
+        expect(callback).toHaveBeenCalledWith();
     });
 
     it("reacts on spawn errors", function () {
@@ -91,7 +91,7 @@ describe("module iconize-svg", function () {
         expect(typeof fs.writeFile.calls.argsFor(1)[2]).toBe('function');
         writeCallbacks['object1.svg']();
         writeCallbacks['object2.svg']();
-        expect(callback).toHaveBeenCalledWith(null);
+        expect(callback).toHaveBeenCalledWith();
     });
 
     it("reacts on missing ids", function () {
@@ -216,7 +216,7 @@ describe("module iconize-svg", function () {
             expect(callback).not.toHaveBeenCalled();
             spawn.calls.mostRecent().args[2](null);
         });
-        expect(callback).toHaveBeenCalledWith(null);
+        expect(callback).toHaveBeenCalledWith();
     });
 
     it("pipes file to postProcess function from inkscape stdout", function () {
@@ -237,7 +237,7 @@ describe("module iconize-svg", function () {
             expect(callback).not.toHaveBeenCalled();
             postProcess.calls.mostRecent().args[1](null);
         });
-        expect(callback).toHaveBeenCalledWith(null);
+        expect(callback).toHaveBeenCalledWith();
     });
 
     it("changes and restores cheerio root object", function () {
