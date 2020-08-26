@@ -4,7 +4,7 @@
   "description": "toolbox for svg icon and style assets workflows",
   "main": "index.js",
   "engines": {
-    "node": ">=4.0"
+    "node": ">=8.0"
   },
   "scripts": {
     "test": "grunt test"
