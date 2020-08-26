@@ -100,7 +100,7 @@ Load a svg file for editing and/or exporting from.
 **Params**
 
 - sourceFn <code>string</code> - qualified file name
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
 <a name="module_toolbox.batch"></a>
@@ -116,7 +116,7 @@ Load and batch process a svg file.
     - .task <code>string</code> - name of a Loaded method
     - .arg <code>string</code> | <code>Object</code> - the first argument for that method (either a
     file name or an options object)
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
 <a name="module_toolbox..callback"></a>
@@ -126,7 +126,7 @@ Load and batch process a svg file.
 **Params**
 
 - error <code>any</code>
-- loaded <code>[Loaded](#Loaded)</code>
+- loaded [<code>Loaded</code>](#Loaded)
 
 <a name="Loaded"></a>
 
@@ -155,7 +155,7 @@ Write stylesheets into the loaded file; all pre-existing style sheets are remove
     - [.sassOptions] <code>Object</code> - node-sass compiler options, excluding file,
     data and sourceMap. Note that `includePaths` defaults to the respective
     directory of each file if omitted
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
 <a name="Loaded+inline"></a>
@@ -174,7 +174,7 @@ elements are subsequently removed.
     - [.sassOptions] <code>Object</code> - node-sass compiler options, excluding file,
     data and sourceMap. Note that `includePaths` defaults to the respective
     directory of each file if omitted
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
 <a name="Loaded+write"></a>
@@ -187,7 +187,7 @@ Write the loaded file to a target file.
 
 - [targetFn] <code>string</code> - qualified file name. Defaults to overwriting
     the source of the loaded file.
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
 <a name="Loaded+export"></a>
@@ -231,6 +231,6 @@ unaltered.
     for SVG, `width`, `height` and `preserveAspectRatio` can be set as attributes
       of the root svg element. The `viewBox` attribute will be set to the bounding
       box of the exported object.
-- callback <code>[callback](#module_toolbox..callback)</code> - node style callback gets the
+- callback [<code>callback</code>](#module_toolbox..callback) - node style callback gets the
     [Loaded](#Loaded) object.
 
